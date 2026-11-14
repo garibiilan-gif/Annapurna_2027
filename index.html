@@ -84,8 +84,23 @@
     background: #fff; color: #333 !important; text-decoration: none; border-radius: 4px; }
   .recenter:hover { background: #f4f4f4; }
   .pop-photo img { display: block; width: 240px; height: 150px; object-fit: cover; border-radius: 6px; background: #e9e5de; }
-  .pop-credit { font-size: 10.5px; color: #777; margin: 3px 0 7px; }
+  .pop-credit { font-size: 10.5px; color: #777; margin: 3px 0 5px; }
   .pop-credit a { color: #777; }
+  .mytrip { margin-top: 14px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18);
+    border-radius: 12px; padding: 10px 12px; }
+  .mytrip h2 { margin: 0 0 6px; font-size: .95rem; letter-spacing: .02em; }
+  .mytrip-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: .88rem; }
+  .mytrip input { font: inherit; padding: 5px 8px; border-radius: 8px; border: 0; color: #1c2530; background: #fff; }
+  .mytrip button { font: inherit; font-size: .82rem; padding: 5px 10px; border-radius: 8px; cursor: pointer;
+    border: 1px solid rgba(255,255,255,.4); background: none; color: #fff; }
+  .mytrip p { margin: 6px 0 0; font-size: .85rem; opacity: .9; }
+  td.day .date { font-size: .78rem; font-weight: 600; color: var(--muted); margin-top: 2px; }
+  .hover-card em.when, .hover-card .when { font-style: normal; font-weight: 600; color: #b4410f; display: block; }
+  .hover-card .links { margin-top: 4px; }
+  .place-tip { white-space: normal; }
+  .place-tip .hover-card, .chart-tip .hover-card { width: 210px; }
+  .place-tip .pop-photo img, .chart-tip .pop-photo img { width: 210px; height: 120px; }
+  .pop-photo { display: block; }
   .hover-card { display: flex; flex-direction: column; gap: 1px; font: 13px/1.35 system-ui, sans-serif; }
   .hover-card b { font-size: 14px; }
   .hover-card span { color: #444; }
@@ -103,6 +118,15 @@
     <div class="stat"><b>5,416 m</b>Thorung La</div>
     <div class="stat"><b>~160 km</b>on foot</div>
     <div class="stat"><b>Tea houses</b>every night</div>
+  </div>
+  <div class="mytrip">
+    <h2>My trip</h2>
+    <div class="mytrip-row">
+      <label for="start">Start date (day 1)</label>
+      <input type="date" id="start">
+      <button type="button" id="clear-start" hidden>Clear</button>
+    </div>
+    <p id="trip-summary"></p>
   </div>
 </header>
 
@@ -130,12 +154,12 @@
     <div class="card" id="profile">
       <h2>Sleeping altitude by night</h2>
       <div id="profile-chart"></div>
-      <p class="hint">Hover or tap a point for details. The orange point on day 11 is Thorung La, crossed during the day. Dashed line: 3,000 m, above which altitude sickness becomes a real risk.</p>
+      <p class="hint">Hover or tap a point for details, photo and dates. The orange point on day 11 is Thorung La, crossed during the day. Dashed line: 3,000 m, above which altitude sickness becomes a real risk.</p>
     </div>
   </section>
 </main>
 
-<footer>Itinerary from Red Swissa Trekking Agency's 2026 package. Altitudes and times are approximate.<br>Place photos from Wikimedia Commons under Creative Commons licenses; each photo is credited in its map popup.</footer>
+<footer>Itinerary from Red Swissa Trekking Agency's 2026 package. Altitudes and times are approximate.<br>Place photos from Wikimedia Commons under Creative Commons licenses; each photo is credited on its card.</footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
@@ -190,7 +214,89 @@ const tag = t => t === "rest" ? '<span class="tag rest">Rest</span>'
   : t === "pass" ? '<span class="tag pass">Pass</span>'
   : t === "drive" ? '<span class="tag flight">Jeep</span>' : "";
 
-/* Tabs */
+/* ---------- My trip: start date (per viewer, and carried in the shared link) ---------- */
+const TRIP_KEY = "annapurna-start";
+let START = null;
+const parseISO = s => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || "");
+  if (!m) return null;
+  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  return isNaN(d) ? null : d;
+};
+const toISO = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const dayDate = d => START && new Date(START.getFullYear(), START.getMonth(), START.getDate() + d - 1);
+const fmtDate = dt => dt.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+const dateOf = d => START ? fmtDate(dayDate(d)) : "";
+function loadStart() {
+  let s = new URLSearchParams(location.search).get("start");
+  if (!parseISO(s)) { try { s = localStorage.getItem(TRIP_KEY); } catch (e) { s = null; } }
+  START = parseISO(s);
+}
+function saveStart(s) {
+  START = parseISO(s);
+  try { START ? localStorage.setItem(TRIP_KEY, toISO(START)) : localStorage.removeItem(TRIP_KEY); } catch (e) {}
+  try {  /* keep the date in the address so a shared link carries it */
+    const url = new URL(location.href);
+    START ? url.searchParams.set("start", toISO(START)) : url.searchParams.delete("start");
+    history.replaceState(null, "", url);
+  } catch (e) {}
+  renderAll();
+}
+
+/* ---------- Per-day details: climb/drop and how you get there ---------- */
+const change = (from, to, fromName) => {
+  const d = to - from;
+  return d === 0 ? `No change from ${fromName}` : `${d > 0 ? "▲ +" : "▼ −"}${fmt(Math.abs(d))} m from ${fromName}`;
+};
+const howOf = x => x.type === "flight" ? `✈ ${x.rem.split(".")[0]}`
+  : x.type === "drive" ? `🚙 ${x.dist} · ${x.rem.split(", ")[1].split(".")[0]}`
+  : x.type === "rest" ? `🥾 ${x.dist}` : `🥾 ${x.dist} · ${x.rem.split(".")[0]}`;
+
+/* Every location point on the page (map pins and altitude points) is described the same way:
+   { name, alt, visits: [{ d, label }], delta, how, day } */
+const POINTS = [];          // altitude chart order
+const PLACES = {};          // one per map pin
+(function build() {
+  let prevAlt = 1400, prevName = "Kathmandu";
+  POINTS.push({ x: 0, label: "KTM", name: "Kathmandu", alt: 1400, day: 1,
+    visits: [{ d: 1, label: "Start of day 1" }], how: "🚙 Jeep to Besisahar · 6–8 h" });
+  PLACES.Kathmandu = { name: "Kathmandu", alt: 1400, day: 1, lat: 27.7172, lng: 85.324,
+    visits: [{ d: 1, label: "Start of day 1" }] };
+  DAYS.forEach(x => {
+    if (x.pass) {
+      const p = { x: x.d - 0.45, label: x.pass.name, pass: true, name: x.pass.name, alt: x.pass.alt, day: x.d,
+        visits: [{ d: x.d, label: `Crossed on day ${x.d} · Highest point` }],
+        delta: change(prevAlt, x.pass.alt, prevName), how: `🥾 Pre-dawn start from ${prevName}` };
+      POINTS.push(p);
+      PLACES[x.pass.name] = { ...p, lat: x.pass.lat, lng: x.pass.lng };
+      prevAlt = x.pass.alt; prevName = x.pass.name;
+    }
+    const label = x.type === "rest" ? `Rest day ${x.d} · Acclimatization` : `End of day ${x.d}`;
+    const p = { x: x.d, label: String(x.d), name: x.to, alt: x.alt, day: x.d, type: x.type,
+      visits: [{ d: x.d, label }], delta: change(prevAlt, x.alt, prevName), how: howOf(x) };
+    POINTS.push(p);
+    if (PLACES[x.to]) PLACES[x.to].visits.push({ d: x.d, label });   // Manang day 8, Kathmandu day 14
+    else PLACES[x.to] = { ...p, visits: [...p.visits], lat: x.lat, lng: x.lng };
+    prevAlt = x.alt; prevName = x.to;
+  });
+})();
+
+/* ---------- One card for every location point (map hover, map popup, altitude chart) ---------- */
+function placeCard(pt, { popup = false } = {}) {
+  const f = PHOTOS[pt.name];
+  const photo = !f ? "" : popup
+    ? `<a class="pop-photo" href="${f.page}" target="_blank" rel="noopener"><img src="${f.src}" alt="${pt.name}" loading="lazy"></a>`
+      + `<div class="pop-credit">Photo: <a href="${f.page}" target="_blank" rel="noopener">${f.by}</a>, ${f.lic}</div>`
+    : `<span class="pop-photo"><img src="${f.src}" alt="${pt.name}" loading="lazy"></span>`
+      + `<div class="pop-credit">Photo: ${f.by}, ${f.lic}</div>`;
+  const visits = pt.visits.map(v => `<span>${v.label}${START ? `<em class="when">📅 ${dateOf(v.d)}</em>` : ""}</span>`).join("");
+  const links = popup ? `<span class="links">${[...new Set(pt.visits.map(v => v.d))]
+    .map(d => `<a href="#" onclick="goToDay(${d});return false">Open day ${d}</a>`).join(" · ")}</span>` : "";
+  return `<div class="hover-card${popup ? " in-popup" : ""}">${photo}<b>${pt.name}</b>${visits}<span>⛰ ${fmt(pt.alt)} m</span>`
+    + (pt.delta ? `<span>${pt.delta}</span>` : "") + (pt.how ? `<span>${pt.how}</span>` : "") + links + `</div>`;
+}
+
+/* ---------- Tabs ---------- */
 const tabs = document.querySelectorAll("nav button");
 function show(name) {
   tabs.forEach(b => b.setAttribute("aria-selected", b.dataset.tab === name));
@@ -199,20 +305,22 @@ function show(name) {
 }
 tabs.forEach(b => b.addEventListener("click", () => show(b.dataset.tab)));
 
-/* Table */
+/* ---------- Table ---------- */
 const place = name => `<button type="button" class="place" data-place="${name}" title="Show ${name} on the map">${name}</button>`;
-document.getElementById("rows").innerHTML = DAYS.map(x => {
-  const alt = x.pass ? `${fmt(x.pass.alt)} m (${place(x.pass.name)}) / ${fmt(x.alt)} m (${place(x.to)})` : `${fmt(x.alt)} m (${place(x.to)})`;
-  const [fromName, ...fromRest] = x.from.split(" (");
-  const from = place(fromName) + (fromRest.length ? " (" + fromRest.join(" (") : "");
-  return `<tr id="day-${x.d}">
-    <td class="day">Day ${x.d}${tag(x.type)}</td>
-    <td data-label="Starting point">${from}</td>
-    <td data-label="Distance">${x.dist}</td>
-    <td data-label="Altitude">${alt}</td>
-    <td data-label="Description">${x.desc}</td>
-    <td data-label="Remarks">${x.rem}</td></tr>`;
-}).join("");
+function renderTable() {
+  document.getElementById("rows").innerHTML = DAYS.map(x => {
+    const alt = x.pass ? `${fmt(x.pass.alt)} m (${place(x.pass.name)}) / ${fmt(x.alt)} m (${place(x.to)})` : `${fmt(x.alt)} m (${place(x.to)})`;
+    const [fromName, ...fromRest] = x.from.split(" (");
+    const from = place(fromName) + (fromRest.length ? " (" + fromRest.join(" (") : "");
+    return `<tr id="day-${x.d}">
+      <td class="day">Day ${x.d}${tag(x.type)}${START ? `<div class="date">${dateOf(x.d)}</div>` : ""}</td>
+      <td data-label="Starting point">${from}</td>
+      <td data-label="Distance">${x.dist}</td>
+      <td data-label="Altitude">${alt}</td>
+      <td data-label="Description">${x.desc}</td>
+      <td data-label="Remarks">${x.rem}</td></tr>`;
+  }).join("");
+}
 
 function goToDay(d) {
   show("plan");
@@ -239,6 +347,23 @@ document.getElementById("rows").addEventListener("click", e => {
   const b = e.target.closest("button.place");
   if (b) goToPlace(b.dataset.place);
 });
+
+/* ---------- My trip panel ---------- */
+const startInput = document.getElementById("start");
+const clearBtn = document.getElementById("clear-start");
+function renderTrip() {
+  const sum = document.getElementById("trip-summary");
+  startInput.value = START ? toISO(START) : "";
+  clearBtn.hidden = !START;
+  if (!START) { sum.textContent = "Pick the date of day 1 to see dates on every day and place."; return; }
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const until = Math.round((START - today) / 864e5), dayNow = 1 - until;
+  const status = until > 0 ? `${fmt(until)} day${until === 1 ? "" : "s"} to go`
+    : dayNow <= 14 ? `On the trail: today is day ${dayNow}` : "Trek completed";
+  sum.innerHTML = `<b>${fmtDate(START)}</b> → <b>${fmtDate(dayDate(14))}</b> · ${status}`;
+}
+startInput.addEventListener("change", () => saveStart(startInput.value));
+clearBtn.addEventListener("click", () => saveStart(""));
 
 /* Place photos: Wikimedia Commons, credited in each popup */
 const PHOTOS = {
@@ -327,11 +452,7 @@ const PHOTOS = {
   "page": "https://commons.wikimedia.org/wiki/File:Phewa_Lake_of_Pokhara_city.jpg"
  }
 };
-const photoHtml = name => { const f = PHOTOS[name]; if (!f) return "";
-  return `<a class="pop-photo" href="${f.page}" target="_blank" rel="noopener"><img src="${f.src}" alt="${name}" loading="lazy"></a>`
-    + `<div class="pop-credit">Photo: <a href="${f.page}" target="_blank" rel="noopener">${f.by}</a>, ${f.lic}</div>`; };
-
-/* Map */
+/* ---------- Map ---------- */
 try {
   window.map = L.map("map", { scrollWheelZoom: true });
   L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
@@ -341,20 +462,23 @@ try {
   const trekLine = DAYS.filter(x => x.type !== "flight" && x.type !== "drive" && x.type !== "rest")
     .flatMap(x => x.pass ? [[x.pass.lat, x.pass.lng], [x.lat, x.lng]] : [[x.lat, x.lng]]);
   trekLine.unshift([DAYS[0].lat, DAYS[0].lng]);
+  /* Cards are functions so they always show the current trip dates */
+  const legCard = f => () => `<div class="hover-card"><b>${f.label}</b>`
+    + (START ? `<em class="when">📅 ${dateOf(f.d)}</em>` : "") + `<span>⏱ ${f.time}</span></div>`;
+  const tipTop = { direction: "top", offset: [0, -12], opacity: 1 };
   /* Jeep: same treatment as the flights, in teal with a jeep badge */
-  const jeep = { a: ktm, b: [DAYS[0].lat, DAYS[0].lng], label: "Day 1 jeep: Kathmandu → Besisahar", time: "6–8 h by private jeep" };
-  const legCard = f => `<div class="hover-card"><b>${f.label}</b><span>⏱ ${f.time}</span></div>`;
+  const jeep = { a: ktm, b: [DAYS[0].lat, DAYS[0].lng], d: 1, label: "Day 1 jeep: Kathmandu → Besisahar", time: "6–8 h by private jeep" };
   L.polyline([jeep.a, jeep.b], { color: "#fff", weight: 8, opacity: .9 }).addTo(map);
   L.polyline([jeep.a, jeep.b], { color: "#0e7490", weight: 4, dashArray: "12 8" })
     .bindTooltip(legCard(jeep), { sticky: true, opacity: 1 }).addTo(map);
   L.marker([jeep.a[0] + (jeep.b[0] - jeep.a[0]) * .3, jeep.a[1] + (jeep.b[1] - jeep.a[1]) * .3], { keyboard: false,
     icon: L.divIcon({ className: "plane-badge jeep-badge", html: "🚙", iconSize: [26, 26], iconAnchor: [13, 13] }) })
-    .bindTooltip(legCard(jeep), { direction: "top", offset: [0, -12], opacity: 1 }).addTo(map);
+    .bindTooltip(legCard(jeep), tipTop).addTo(map);
   L.polyline(trekLine, { color: "#c2410c", weight: 4 }).addTo(map);
   /* Flights: white casing under a bold dashed line, plus a plane badge on each leg */
   const flights = [
-    { a: [28.7811, 83.7233], b: [28.2096, 83.9856], label: "Day 13 flight: Jomsom → Pokhara", time: "20–25 min flight" },
-    { a: [28.2096, 83.9856], b: ktm, label: "Day 14 flight: Pokhara → Kathmandu", time: "25–30 min flight", t: .3 }
+    { a: [28.7811, 83.7233], b: [28.2096, 83.9856], d: 13, label: "Day 13 flight: Jomsom → Pokhara", time: "20–25 min flight" },
+    { a: [28.2096, 83.9856], b: ktm, d: 14, label: "Day 14 flight: Pokhara → Kathmandu", time: "25–30 min flight", t: .3 }
   ];
   const planeIcon = L.divIcon({ className: "plane-badge", html: "✈", iconSize: [26, 26], iconAnchor: [13, 13] });
   flights.forEach(f => {
@@ -363,26 +487,17 @@ try {
       .bindTooltip(legCard(f), { sticky: true, opacity: 1 }).addTo(map);
     const t = f.t ?? .5;
     L.marker([f.a[0] + (f.b[0] - f.a[0]) * t, f.a[1] + (f.b[1] - f.a[1]) * t], { icon: planeIcon, keyboard: false })
-      .bindTooltip(legCard(f), { direction: "top", offset: [0, -12], opacity: 1 }).addTo(map);
+      .bindTooltip(legCard(f), tipTop).addTo(map);
   });
-  /* Hover card: place name, which day ends there, altitude */
-  const card = (name, when, alt) =>
-    `<div class="hover-card"><b>${name}</b><span>${when}</span><span>⛰ ${fmt(alt)} m</span></div>`;
-  const pin = (lat, lng, label, html, color, hover) => PINS[label] = L.circleMarker([lat, lng], {
-      radius: 8, color: "#fff", weight: 2, fillColor: color, fillOpacity: 1, autoPan: false })
-    .bindTooltip(hover, { direction: "top", offset: [0, -8], opacity: 1 })
-    .bindPopup(photoHtml(label) + html, { autoPan: false, maxWidth: 260, minWidth: 240 }).addTo(map);
-  pin(...ktm, "Kathmandu", "<b>Kathmandu</b><br>Start (day 1) and end (day 14)", "#1d3b53",
-    card("Kathmandu", "Start of day 1 · End of day 14", 1400));
-  DAYS.forEach(x => {
-    if (x.d === 8 || x.d === 14) return;
-    const nights = x.d === 7 ? "Nights 7–8" : "Night " + x.d;
-    const when = x.d === 7 ? "End of day 7 · Rest day 8" : "End of day " + x.d;
-    pin(x.lat, x.lng, x.to, `<b>${x.to}</b> · ${fmt(x.alt)} m<br>${nights}<br><a href="#" onclick="goToDay(${x.d});return false">Open day ${x.d}</a>`,
-      x.type === "flight" ? "#6b5bb5" : "#c2410c", card(x.to, when, x.alt));
-    if (x.pass) pin(x.pass.lat, x.pass.lng, x.pass.name,
-      `<b>${x.pass.name}</b> · ${fmt(x.pass.alt)} m<br>Highest point, day ${x.d}`, "#e11d48",
-      card(x.pass.name, `Crossed on day ${x.d} · Highest point`, x.pass.alt));
+  /* Place pins: hover shows the card, click opens the same card with links */
+  Object.values(PLACES).forEach(pt => {
+    const color = pt.name === "Kathmandu" ? "#1d3b53" : pt.pass ? "#e11d48" : pt.type === "flight" ? "#6b5bb5" : "#c2410c";
+    PINS[pt.name] = L.circleMarker([pt.lat, pt.lng], {
+        radius: 8, color: "#fff", weight: 2, fillColor: color, fillOpacity: 1 })
+      .bindTooltip(() => placeCard(pt), { direction: "top", offset: [0, -8], opacity: 1, className: "place-tip" })
+      .bindPopup(() => placeCard(pt, { popup: true }), { autoPan: false, maxWidth: 260, minWidth: 240 })
+      .on("popupopen", e => e.target.closeTooltip())
+      .addTo(map);
   });
   /* Every launch opens on the trekking route itself (Besisahar → Thorung La → Jomsom) */
   window.fitTrek = () => { map.invalidateSize(); map.fitBounds(L.latLngBounds(trekLine), { padding: [24, 24] }); };
@@ -398,24 +513,9 @@ try {
   document.getElementById("map").innerHTML = '<p style="padding:16px">The map needs a connection the first time it opens. The day-by-day plan and altitude chart work offline.</p>';
 }
 
-/* Altitude profile */
+/* ---------- Altitude profile: same cards as the map ---------- */
 (function () {
-  const pts = [{ x: 0, alt: 1400, label: "KTM", name: "Kathmandu", when: "Start of day 1", extra: "Trek starts with a 6–8 h jeep ride" }];
-  let prevAlt = 1400, prevName = "Kathmandu";
-  const change = (from, to, fromName) => {
-    const d = to - from;
-    return d === 0 ? `No change from ${fromName}` : `${d > 0 ? "▲ +" : "▼ −"}${fmt(Math.abs(d))} m from ${fromName}`;
-  };
-  DAYS.forEach(x => {
-    if (x.pass) pts.push({ x: x.d - 0.45, alt: x.pass.alt, label: "Thorung La", pass: true, name: x.pass.name,
-      when: `Crossed on day ${x.d} · Highest point`, delta: change(prevAlt, x.pass.alt, prevName) });
-    if (x.pass) { prevAlt = x.pass.alt; prevName = x.pass.name; }
-    const when = x.type === "rest" ? `Day ${x.d} · Rest & acclimatization` : `End of day ${x.d}`;
-    const how = x.type === "flight" ? `✈ ${x.rem.split(".")[0]}`
-      : x.type === "drive" ? `🚙 ${x.dist} · ${x.rem.split(", ")[1].split(".")[0]}` : x.type === "rest" ? x.dist : `🥾 ${x.dist} · ${x.rem.split(".")[0]}`;
-    pts.push({ x: x.d, alt: x.alt, label: String(x.d), name: x.to, when, extra: how, delta: change(prevAlt, x.alt, prevName) });
-    prevAlt = x.alt; prevName = x.to;
-  });
+  const pts = POINTS;
   const W = 700, H = 300, L0 = 46, R0 = 14, T0 = 16, B0 = 34, maxA = 5800;
   const sx = v => L0 + v / 14 * (W - L0 - R0), sy = a => T0 + (1 - a / maxA) * (H - T0 - B0);
   const path = pts.map((p, i) => (i ? "L" : "M") + sx(p.x).toFixed(1) + " " + sy(p.alt).toFixed(1)).join(" ");
@@ -424,7 +524,7 @@ try {
   for (let a = 0; a <= 5000; a += 1000)
     g += `<line x1="${L0}" x2="${W - R0}" y1="${sy(a)}" y2="${sy(a)}" stroke="var(--line)"/><text x="${L0 - 6}" y="${sy(a) + 4}" text-anchor="end">${fmt(a)}</text>`;
   g += `<line x1="${L0}" x2="${W - R0}" y1="${sy(3000)}" y2="${sy(3000)}" stroke="var(--accent)" stroke-dasharray="4 4" opacity=".6"/>`;
-  const dots = pts.map((p, i) => `<g class="pt" data-i="${i}" tabindex="0" role="button" aria-label="${p.name}, ${p.when}, ${fmt(p.alt)} m">
+  const dots = pts.map((p, i) => `<g class="pt" data-i="${i}" tabindex="0" role="button" aria-label="${p.name}, ${p.visits[0].label}, ${fmt(p.alt)} m">
       <circle class="dot" cx="${sx(p.x)}" cy="${sy(p.alt)}" r="${p.pass ? 6 : 4}" fill="${p.pass ? "var(--accent)" : "var(--prof)"}" stroke="var(--card)" stroke-width="2"/>
       <circle cx="${sx(p.x)}" cy="${sy(p.alt)}" r="16" fill="transparent"/></g>`).join("");
   const xl = pts.filter(p => !p.pass).map(p => `<text x="${sx(p.x)}" y="${H - 12}" text-anchor="middle">${p.label}</text>`).join("");
@@ -438,21 +538,19 @@ try {
       <text x="${W - R0}" y="${H - 1}" text-anchor="end">day</text>
       ${xl}${dots}</svg><div class="chart-tip" hidden></div>`;
 
-  /* Hover / tap card, same content style as the map cards */
   const tip = box.querySelector(".chart-tip");
   let active = null;
   function open(el) {
     const p = pts[+el.dataset.i];
     if (active) active.classList.remove("on");
     active = el; el.classList.add("on");
-    tip.innerHTML = `<div class="hover-card"><b>${p.name}</b><span>${p.when}</span><span>⛰ ${fmt(p.alt)} m</span>`
-      + (p.delta ? `<span>${p.delta}</span>` : "") + (p.extra ? `<span>${p.extra}</span>` : "") + `</div>`;
+    tip.innerHTML = placeCard(p);
     tip.hidden = false;
     const d = el.querySelector(".dot").getBoundingClientRect(), b = box.getBoundingClientRect();
     const cx = d.left + d.width / 2 - b.left, cy = d.top - b.top;
     const w = tip.offsetWidth, h = tip.offsetHeight;
     tip.style.left = Math.max(0, Math.min(b.width - w, cx - w / 2)) + "px";
-    tip.style.top = (cy - h - 10 < 0 ? cy + d.height + 10 : cy - h - 10) + "px";
+    tip.style.top = (cy - h - 10 >= -60 ? cy - h - 10 : cy + d.height + 10) + "px";
   }
   function close() { tip.hidden = true; if (active) active.classList.remove("on"); active = null; }
   box.querySelectorAll(".pt").forEach(el => {
@@ -462,7 +560,18 @@ try {
   });
   box.querySelector("svg").addEventListener("pointerleave", e => { if (e.pointerType === "mouse") close(); });
   document.addEventListener("click", e => { if (!box.contains(e.target)) close(); });
+  window.closeChartTip = close;
 })();
+
+/* ---------- Render everything that shows dates ---------- */
+function renderAll() {
+  renderTrip();
+  renderTable();
+  if (window.map) { map.closePopup(); map.eachLayer(l => l.closeTooltip && l.closeTooltip()); }
+  if (window.closeChartTip) closeChartTip();
+}
+loadStart();
+renderAll();
 
 /* Always start at the top, on the Map tab */
 if ("scrollRestoration" in history) history.scrollRestoration = "manual";
