@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Annapurna Circuit 2027</title>
+<meta name="description" content="14-day Annapurna Circuit trek: route map, elevation profile and day-by-day plan.">
+<meta name="theme-color" content="#1d3b53">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root {
+    --bg: #f6f3ee; --card: #ffffff; --ink: #1c2530; --muted: #5d6874;
+    --line: #e2ddd4; --accent: #c2410c; --sky: #1d3b53; --snow: #eef4f8;
+    --rest: #2f7d5b; --flight: #6b5bb5; --prof: #1d3b53;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #11161c; --card: #19212a; --ink: #e8edf2; --muted: #9aa6b2;
+      --line: #2a3541; --accent: #f08a4b; --sky: #0c1822; --snow: #1f2b37;
+      --rest: #5cc092; --flight: #a497e6; --prof: #8cc4ec; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { background: var(--sky); color: #fff; padding: calc(20px + env(safe-area-inset-top)) 16px 18px; }
+  header h1 { margin: 0; font-size: 1.5rem; letter-spacing: .01em; }
+  header p { margin: 4px 0 0; opacity: .8; font-size: .92rem; }
+  .stats { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .stat { background: rgba(255,255,255,.12); border-radius: 10px; padding: 6px 10px; font-size: .85rem; }
+  .stat b { display: block; font-size: 1.05rem; }
+  nav { position: sticky; top: 0; z-index: 1000; display: flex; background: var(--card);
+    border-bottom: 1px solid var(--line); }
+  nav button { flex: 1; border: 0; background: none; color: var(--muted); padding: 12px 4px;
+    font: inherit; font-weight: 600; border-bottom: 3px solid transparent; cursor: pointer; }
+  nav button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  section[hidden] { display: none; }
+  #map { height: 62vh; min-height: 340px; border-radius: 12px; border: 1px solid var(--line); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  h2 { font-size: 1.1rem; margin: 0 0 10px; }
+  .hint { color: var(--muted); font-size: .85rem; margin: 8px 0 0; }
+  /* Plan table */
+  table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 12px; overflow: hidden; }
+  th, td { text-align: left; vertical-align: top; padding: 10px; border-bottom: 1px solid var(--line); font-size: .92rem; }
+  th { background: var(--snow); font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  td.day { font-weight: 700; color: var(--accent); white-space: nowrap; }
+  tr.focus td { background: var(--snow); }
+  .tag { display: inline-block; font-size: .72rem; font-weight: 700; padding: 1px 7px; border-radius: 99px; margin-left: 4px; color: #fff; }
+  .tag.rest { background: var(--rest); } .tag.flight { background: var(--flight); } .tag.pass { background: var(--accent); }
+  @media (max-width: 760px) {
+    thead { display: none; }
+    table, tbody, tr, td { display: block; width: 100%; }
+    table { background: none; }
+    tr { background: var(--card); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; padding: 4px 0; }
+    td { border: 0; padding: 4px 14px; }
+    td::before { content: attr(data-label); display: block; font-size: .72rem; text-transform: uppercase;
+      letter-spacing: .05em; color: var(--muted); }
+    td.day { font-size: 1.1rem; padding-top: 10px; }
+    td.day::before { display: none; }
+  }
+  /* Profile */
+  #profile svg { width: 100%; height: auto; display: block; }
+  #profile text { fill: var(--muted); font-size: 11px; }
+  footer { color: var(--muted); font-size: .8rem; text-align: center; padding: 20px 16px 40px; }
+  .leaflet-popup-content { font: 14px/1.4 system-ui, sans-serif; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Annapurna Circuit 2027</h1>
+  <p>Kathmandu → Besisahar → Thorung La → Jomsom → Pokhara</p>
+  <div class="stats">
+    <div class="stat"><b>14 days</b>itinerary</div>
+    <div class="stat"><b>5,416 m</b>Thorung La</div>
+    <div class="stat"><b>~160 km</b>on foot</div>
+    <div class="stat"><b>Tea houses</b>every night</div>
+  </div>
+</header>
+
+<nav role="tablist">
+  <button role="tab" aria-selected="true" data-tab="map">Map</button>
+  <button role="tab" aria-selected="false" data-tab="plan">Day by day</button>
+  <button role="tab" aria-selected="false" data-tab="profile">Altitude</button>
+</nav>
+
+<main>
+  <section id="tab-map">
+    <div id="map"></div>
+    <p class="hint">Tap a pin for that day. Pins are approximate village locations, not a GPS track. Map areas you have viewed while online stay available offline.</p>
+  </section>
+
+  <section id="tab-plan" hidden>
+    <table>
+      <thead><tr><th>Day</th><th>Starting point</th><th>Distance</th><th>Altitude</th><th>Description</th><th>Remarks</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </section>
+
+  <section id="tab-profile" hidden>
+    <div class="card" id="profile">
+      <h2>Sleeping altitude by night</h2>
+      <div id="profile-chart"></div>
+      <p class="hint">The orange point on day 11 is Thorung La, crossed during the day. Dashed line: 3,000 m, above which altitude sickness becomes a real risk.</p>
+    </div>
+  </section>
+</main>
+
+<footer>Itinerary from Red Swissa Trekking Agency's 2026 package. Altitudes and times are approximate.</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const DAYS = [
+  { d: 1, from: "Kathmandu", to: "Besisahar", alt: 760, lat: 28.2306, lng: 84.3778, dist: "175–190 km (drive)", type: "drive",
+    desc: "Drive to Besisahar, gateway to the circuit, through hills, river valleys, terraced fields and villages of Lamjung district.",
+    rem: "Private jeep, 6–8 h. Lodge in Besisahar." },
+  { d: 2, from: "Besisahar (760 m)", to: "Bahundanda", alt: 1310, lat: 28.3317, lng: 84.4106, dist: "15–17 km",
+    desc: "Trek along the Marsyangdi River past villages, terraced fields and suspension bridges up to the hilltop village of Bahundanda.",
+    rem: "5–6 h. About +550 m. Lodge in Bahundanda." },
+  { d: 3, from: "Bahundanda (1,310 m)", to: "Tal", alt: 1700, lat: 28.4686, lng: 84.372, dist: "15–17 km",
+    desc: "Up the Marsyangdi through forest, waterfalls and settlements, crossing suspension bridges to Tal, a riverside village under high cliffs.",
+    rem: "5–7 h. About +390 m. Lodge in Tal." },
+  { d: 4, from: "Tal (1,700 m)", to: "Dharapani", alt: 1860, lat: 28.5216, lng: 84.357, dist: "8–10 km",
+    desc: "Forest trails, rocky paths and villages with views of the Marsyangdi Valley up to Dharapani.",
+    rem: "Short day, 3–5 h. About +160 m. Lodge in Dharapani." },
+  { d: 5, from: "Dharapani (1,860 m)", to: "Chame", alt: 2670, lat: 28.552, lng: 84.242, dist: "15–16 km",
+    desc: "Pine forest and villages with the first big Himalayan views, up to Chame, administrative center of Manang district.",
+    rem: "5–6 h. About +810 m. Hot springs nearby. Lodge in Chame." },
+  { d: 6, from: "Chame (2,670 m)", to: "Upper Pisang", alt: 3300, lat: 28.6136, lng: 84.1394, dist: "13–15 km",
+    desc: "Pine forest and narrow valleys with views of Annapurna II, climbing to Upper Pisang and its traditional architecture.",
+    rem: "5–6 h. About +630 m. First night above 3,000 m. Lodge in Upper Pisang." },
+  { d: 7, from: "Upper Pisang (3,300 m)", to: "Manang", alt: 3540, lat: 28.6667, lng: 84.0167, dist: "15–17 km",
+    desc: "Upper trail via Ghyaru and Ngawal with views of the Annapurna range, monasteries and stone villages, ending in Manang.",
+    rem: "Long day, 6–8 h. The upper trail climbs above Manang before descending, which helps acclimatization. Lodge in Manang." },
+  { d: 8, from: "Manang (3,540 m)", to: "Manang", alt: 3540, lat: 28.6667, lng: 84.0167, dist: "Optional short hike", type: "rest",
+    desc: "Acclimatization day: explore the village and monasteries, hike to a viewpoint or visit Gangapurna Lake.",
+    rem: "Rest day. Walk high, sleep low. Lodge in Manang." },
+  { d: 9, from: "Manang (3,540 m)", to: "Yak Kharka", alt: 4050, lat: 28.712, lng: 83.9917, dist: "9–10 km",
+    desc: "Gradual climb through alpine country and yak pastures along the upper Marsyangdi Valley to Yak Kharka.",
+    rem: "3–4 h. About +510 m. First night above 4,000 m. Lodge in Yak Kharka." },
+  { d: 10, from: "Yak Kharka (4,050 m)", to: "Thorung Phedi", alt: 4540, lat: 28.783, lng: 83.956, dist: "7–8 km",
+    desc: "Rugged trail over rocky slopes to Thorung Phedi, base for the Thorung La crossing.",
+    rem: "4–5 h. About +490 m. Early night before the pass. Lodge in Thorung Phedi." },
+  { d: 11, from: "Thorung Phedi (4,540 m)", to: "Muktinath", alt: 3760, lat: 28.8167, lng: 83.8714, dist: "15–17 km", type: "pass",
+    pass: { name: "Thorung La", alt: 5416, lat: 28.7936, lng: 83.9378 },
+    desc: "Cross Thorung La (5,416 m), the highest point of the circuit, then a long descent to Muktinath, a pilgrimage site for Hindus and Buddhists.",
+    rem: "Hardest day, 8–10 h. Pre-dawn start. About +876 m up, then about −1,656 m down. Lodge in Muktinath." },
+  { d: 12, from: "Muktinath (3,760 m)", to: "Jomsom", alt: 2720, lat: 28.7811, lng: 83.7233, dist: "18–20 km",
+    desc: "Descend through Mustang landscapes and the dry, windswept Kali Gandaki Valley to Jomsom.",
+    rem: "4–6 h. About −1,040 m. Lodge in Jomsom." },
+  { d: 13, from: "Jomsom (2,720 m)", to: "Pokhara", alt: 820, lat: 28.2096, lng: 83.9856, dist: "Flight", type: "flight",
+    desc: "Early-morning flight to Pokhara with views of the Annapurna and Dhaulagiri ranges, then rest by the lake.",
+    rem: "20–25 min flight. Mountain flights depend on weather and can be delayed. Hotel in Pokhara." },
+  { d: 14, from: "Pokhara (820 m)", to: "Kathmandu", alt: 1400, lat: 27.7172, lng: 85.324, dist: "Flight", type: "flight",
+    desc: "Flight back to Kathmandu over the Himalayan foothills. End of the trek.",
+    rem: "25–30 min flight. Kathmandu accommodation and meals are not included in the package." }
+];
+const fmt = n => n.toLocaleString("en-US");
+const tag = t => t === "rest" ? '<span class="tag rest">Rest</span>'
+  : t === "flight" ? '<span class="tag flight">Flight</span>'
+  : t === "pass" ? '<span class="tag pass">Pass</span>'
+  : t === "drive" ? '<span class="tag flight">Jeep</span>' : "";
+
+/* Tabs */
+const tabs = document.querySelectorAll("nav button");
+function show(name) {
+  tabs.forEach(b => b.setAttribute("aria-selected", b.dataset.tab === name));
+  ["map", "plan", "profile"].forEach(t => document.getElementById("tab-" + t).hidden = t !== name);
+  if (name === "map" && window.map) setTimeout(() => map.invalidateSize(), 50);
+}
+tabs.forEach(b => b.addEventListener("click", () => show(b.dataset.tab)));
+
+/* Table */
+document.getElementById("rows").innerHTML = DAYS.map(x => {
+  const alt = x.pass ? `${fmt(x.pass.alt)} m (${x.pass.name}) / ${fmt(x.alt)} m (${x.to})` : `${fmt(x.alt)} m (${x.to})`;
+  return `<tr id="day-${x.d}">
+    <td class="day">Day ${x.d}${tag(x.type)}</td>
+    <td data-label="Starting point">${x.from}</td>
+    <td data-label="Distance">${x.dist}</td>
+    <td data-label="Altitude">${alt}</td>
+    <td data-label="Description">${x.desc}</td>
+    <td data-label="Remarks">${x.rem}</td></tr>`;
+}).join("");
+
+function goToDay(d) {
+  show("plan");
+  document.querySelectorAll("tr.focus").forEach(r => r.classList.remove("focus"));
+  const row = document.getElementById("day-" + d);
+  row.classList.add("focus");
+  row.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+/* Map */
+try {
+  window.map = L.map("map", { scrollWheelZoom: false });
+  L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
+    maxZoom: 15, attribution: "© OpenStreetMap contributors, SRTM | © OpenTopoMap"
+  }).addTo(map);
+  const ktm = [27.7172, 85.324];
+  const trekLine = DAYS.filter(x => x.type !== "flight" && x.type !== "drive" && x.type !== "rest")
+    .flatMap(x => x.pass ? [[x.pass.lat, x.pass.lng], [x.lat, x.lng]] : [[x.lat, x.lng]]);
+  trekLine.unshift([DAYS[0].lat, DAYS[0].lng]);
+  L.polyline([ktm, [DAYS[0].lat, DAYS[0].lng]], { color: "#6b5bb5", weight: 3, dashArray: "6 6" }).addTo(map);
+  L.polyline(trekLine, { color: "#c2410c", weight: 4 }).addTo(map);
+  L.polyline([[28.7811, 83.7233], [28.2096, 83.9856], ktm], { color: "#6b5bb5", weight: 2, dashArray: "2 8" }).addTo(map);
+  const pin = (lat, lng, label, html, color) => L.circleMarker([lat, lng], {
+      radius: 8, color: "#fff", weight: 2, fillColor: color, fillOpacity: 1 })
+    .bindTooltip(label, { permanent: false }).bindPopup(html).addTo(map);
+  pin(...ktm, "Kathmandu", "<b>Kathmandu</b><br>Start (day 1) and end (day 14)", "#1d3b53");
+  DAYS.forEach(x => {
+    if (x.d === 8 || x.d === 14) return;
+    const nights = x.d === 7 ? "Nights 7–8" : "Night " + x.d;
+    pin(x.lat, x.lng, x.to, `<b>${x.to}</b> · ${fmt(x.alt)} m<br>${nights}<br><a href="#" onclick="goToDay(${x.d});return false">Open day ${x.d}</a>`,
+      x.type === "flight" ? "#6b5bb5" : "#c2410c");
+    if (x.pass) pin(x.pass.lat, x.pass.lng, x.pass.name,
+      `<b>${x.pass.name}</b> · ${fmt(x.pass.alt)} m<br>Highest point, day 11`, "#e11d48");
+  });
+  map.fitBounds(L.latLngBounds([ktm, ...trekLine, [28.2096, 83.9856]]), { padding: [20, 20] });
+} catch (e) {
+  document.getElementById("map").innerHTML = '<p style="padding:16px">The map needs a connection the first time it opens. The day-by-day plan and altitude chart work offline.</p>';
+}
+
+/* Altitude profile */
+(function () {
+  const pts = [{ x: 0, alt: 1400, label: "KTM" }];
+  DAYS.forEach(x => {
+    if (x.pass) pts.push({ x: x.d - 0.45, alt: x.pass.alt, label: "Thorung La", pass: true });
+    pts.push({ x: x.d, alt: x.alt, label: String(x.d) });
+  });
+  const W = 700, H = 300, L0 = 46, R0 = 14, T0 = 16, B0 = 34, maxA = 5800;
+  const sx = v => L0 + v / 14 * (W - L0 - R0), sy = a => T0 + (1 - a / maxA) * (H - T0 - B0);
+  const path = pts.map((p, i) => (i ? "L" : "M") + sx(p.x).toFixed(1) + " " + sy(p.alt).toFixed(1)).join(" ");
+  const area = path + ` L${sx(14)} ${sy(0)} L${sx(0)} ${sy(0)} Z`;
+  let g = "";
+  for (let a = 0; a <= 5000; a += 1000)
+    g += `<line x1="${L0}" x2="${W - R0}" y1="${sy(a)}" y2="${sy(a)}" stroke="var(--line)"/><text x="${L0 - 6}" y="${sy(a) + 4}" text-anchor="end">${fmt(a)}</text>`;
+  g += `<line x1="${L0}" x2="${W - R0}" y1="${sy(3000)}" y2="${sy(3000)}" stroke="var(--accent)" stroke-dasharray="4 4" opacity=".6"/>`;
+  const dots = pts.map(p => `<circle cx="${sx(p.x)}" cy="${sy(p.alt)}" r="${p.pass ? 6 : 4}" fill="${p.pass ? "var(--accent)" : "var(--prof)"}" stroke="var(--card)" stroke-width="2"><title>${p.pass ? "Thorung La" : "Day " + p.label}: ${fmt(p.alt)} m</title></circle>`).join("");
+  const xl = pts.filter(p => !p.pass).map(p => `<text x="${sx(p.x)}" y="${H - 12}" text-anchor="middle">${p.label}</text>`).join("");
+  const passP = pts.find(p => p.pass);
+  document.getElementById("profile-chart").innerHTML =
+    `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Altitude profile">${g}
+      <path d="${area}" fill="var(--prof)" opacity=".12"/>
+      <path d="${path}" fill="none" stroke="var(--prof)" stroke-width="2.5" stroke-linejoin="round"/>
+      ${dots}${xl}
+      <text x="${sx(passP.x)}" y="${sy(passP.alt) - 10}" text-anchor="middle" style="fill:var(--accent);font-weight:700">Thorung La ${fmt(passP.alt)} m</text>
+      <text x="${W - R0}" y="${H - 1}" text-anchor="end">day</text></svg>`;
+})();
+
+/* Offline support */
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>
