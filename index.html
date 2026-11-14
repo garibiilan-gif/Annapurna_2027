@@ -101,6 +101,19 @@
   .place-tip .hover-card, .chart-tip .hover-card { width: 210px; }
   .place-tip .pop-photo img, .chart-tip .pop-photo img { width: 210px; height: 120px; }
   .pop-photo { display: block; }
+  header { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  @media (min-width: 900px) { header { grid-template-columns: minmax(0, 1fr) 340px; align-items: start; } }
+  .weather { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18); border-radius: 12px;
+    padding: 10px 12px; font-size: .86rem; line-height: 1.4; }
+  .wx-head { display: flex; flex-direction: column; }
+  .wx-head span { font-size: .95rem; font-weight: 700; letter-spacing: .02em; }
+  .wx-head b { font-weight: 600; opacity: .95; }
+  .wx-block { margin-top: 9px; }
+  .wx-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; opacity: .75; }
+  .wx-body { display: flex; gap: 10px; align-items: center; }
+  .wx-ico { font-size: 1.9rem; line-height: 1; }
+  .wx-note { margin: 6px 0 0; font-size: .78rem; color: #ffd9bd; }
+  .wx-hint { margin: 8px 0 0; font-size: .74rem; opacity: .7; }
   .hover-card { display: flex; flex-direction: column; gap: 1px; font: 13px/1.35 system-ui, sans-serif; }
   .hover-card b { font-size: 14px; }
   .hover-card span { color: #444; }
@@ -111,6 +124,7 @@
 </head>
 <body>
 <header>
+  <div class="hero-main">
   <h1>Annapurna Circuit 2027</h1>
   <p>Kathmandu → Besisahar → Thorung La → Jomsom → Pokhara</p>
   <div class="stats">
@@ -128,6 +142,8 @@
     </div>
     <p id="trip-summary"></p>
   </div>
+  </div>
+  <aside class="weather" id="weather" aria-live="polite"></aside>
 </header>
 
 <nav role="tablist">
@@ -493,11 +509,11 @@ try {
   const legLayer = (layer, f, tipOpts) => layer
     .bindTooltip(legCard(f), { ...tipOpts, opacity: 1, className: "place-tip" })
     .bindPopup(legCard(f, true), { autoPan: false, maxWidth: 260, minWidth: 240 })
-    .on("popupopen", e => e.target.closeTooltip())
+    .on("popupopen", e => { e.target.closeTooltip(); selectWeather(PLACES[f.dest], f.d); })
     .addTo(map);
   const tipTop = { direction: "top", offset: [0, -12] };
   /* Jeep: same treatment as the flights, in teal with a jeep badge */
-  const jeep = { a: ktm, b: [DAYS[0].lat, DAYS[0].lng], d: 1, label: "Day 1 jeep: Kathmandu → Besisahar", time: "6–8 h by private jeep", photo: "Jeep: Kathmandu → Besisahar" };
+  const jeep = { a: ktm, b: [DAYS[0].lat, DAYS[0].lng], d: 1, label: "Day 1 jeep: Kathmandu → Besisahar", time: "6–8 h by private jeep", photo: "Jeep: Kathmandu → Besisahar", dest: "Besisahar" };
   L.polyline([jeep.a, jeep.b], { color: "#fff", weight: 8, opacity: .9 }).addTo(map);
   legLayer(L.polyline([jeep.a, jeep.b], { color: "#0e7490", weight: 4, dashArray: "12 8" }), jeep, { sticky: true });
   legLayer(L.marker([jeep.a[0] + (jeep.b[0] - jeep.a[0]) * .3, jeep.a[1] + (jeep.b[1] - jeep.a[1]) * .3], { keyboard: false,
@@ -505,8 +521,8 @@ try {
   L.polyline(trekLine, { color: "#c2410c", weight: 4 }).addTo(map);
   /* Flights: white casing under a bold dashed line, plus a plane badge on each leg */
   const flights = [
-    { a: [28.7811, 83.7233], b: [28.2096, 83.9856], d: 13, label: "Day 13 flight: Jomsom → Pokhara", time: "20–25 min flight", photo: "Flight: Jomsom → Pokhara" },
-    { a: [28.2096, 83.9856], b: ktm, d: 14, label: "Day 14 flight: Pokhara → Kathmandu", time: "25–30 min flight", t: .3, photo: "Flight: Pokhara → Kathmandu" }
+    { a: [28.7811, 83.7233], b: [28.2096, 83.9856], d: 13, label: "Day 13 flight: Jomsom → Pokhara", time: "20–25 min flight", photo: "Flight: Jomsom → Pokhara", dest: "Pokhara" },
+    { a: [28.2096, 83.9856], b: ktm, d: 14, label: "Day 14 flight: Pokhara → Kathmandu", time: "25–30 min flight", t: .3, photo: "Flight: Pokhara → Kathmandu", dest: "Kathmandu" }
   ];
   const planeIcon = L.divIcon({ className: "plane-badge", html: "✈", iconSize: [26, 26], iconAnchor: [13, 13] });
   flights.forEach(f => {
@@ -522,7 +538,7 @@ try {
         radius: 8, color: "#fff", weight: 2, fillColor: color, fillOpacity: 1 })
       .bindTooltip(() => placeCard(pt), { direction: "top", offset: [0, -8], opacity: 1, className: "place-tip" })
       .bindPopup(() => placeCard(pt, { popup: true }), { autoPan: false, maxWidth: 260, minWidth: 240 })
-      .on("popupopen", e => e.target.closeTooltip())
+      .on("popupopen", e => { e.target.closeTooltip(); selectWeather(pt); })
       .addTo(map);
   });
   /* Every launch opens on the trekking route itself (Besisahar → Thorung La → Jomsom) */
@@ -582,17 +598,105 @@ try {
   box.querySelectorAll(".pt").forEach(el => {
     el.addEventListener("pointerenter", () => open(el));
     el.addEventListener("focus", () => open(el));
-    el.addEventListener("click", e => { e.stopPropagation(); open(el); });
+    el.addEventListener("click", e => { e.stopPropagation(); open(el); const p = pts[+el.dataset.i]; selectWeather(PLACES[p.name], p.day); });
   });
   box.querySelector("svg").addEventListener("pointerleave", e => { if (e.pointerType === "mouse") close(); });
   document.addEventListener("click", e => { if (!box.contains(e.target)) close(); });
   window.closeChartTip = close;
 })();
 
+/* ---------- Weather panel (Open-Meteo: free, no key) ----------
+   Shows today's weather at the chosen place, plus the weather for the chosen trip day:
+   a real forecast up to 5 days ahead, otherwise a 10-year average for that date. */
+const WX = { sel: null, cache: {}, token: 0 };
+const WMO = c => c === 0 ? ["☀️", "Clear"] : c <= 2 ? ["🌤️", "Partly cloudy"] : c === 3 ? ["☁️", "Overcast"]
+  : c <= 48 ? ["🌫️", "Fog"] : c <= 57 ? ["🌦️", "Drizzle"] : c <= 67 ? ["🌧️", "Rain"] : c <= 77 ? ["🌨️", "Snow"]
+  : c <= 82 ? ["🌦️", "Showers"] : c <= 86 ? ["🌨️", "Snow showers"] : ["⛈️", "Thunderstorm"];
+const deg = v => `${Math.round(v)}°`;
+const ymd = d => toISO(d);
+const getJSON = url => WX.cache[url] || (WX.cache[url] = fetch(url).then(r => {
+  if (!r.ok) throw new Error(r.status); return r.json();
+}).catch(e => { delete WX.cache[url]; throw e; }));
+const wxBase = p => `latitude=${p.lat}&longitude=${p.lng}&elevation=${p.alt}&timezone=Asia%2FKathmandu`;
+
+function selectWeather(pt, d) {
+  const P = PLACES[pt.name] || pt;
+  WX.sel = { name: P.name, alt: P.alt, lat: P.lat, lng: P.lng, d: d ?? P.visits[0].d };
+  renderWeather();
+}
+
+async function climateFor(p, date) {
+  /* Same calendar window (±3 days) in each of the last 10 years, fetched in parallel */
+  const thisYear = new Date().getFullYear(), reqs = [];
+  for (let y = thisYear - 10; y < thisYear; y++) {
+    const mid = new Date(y, date.getMonth(), date.getDate());
+    const a = new Date(mid); a.setDate(a.getDate() - 3);
+    const b = new Date(mid); b.setDate(b.getDate() + 3);
+    reqs.push(getJSON(`https://archive-api.open-meteo.com/v1/archive?${wxBase(p)}&start_date=${ymd(a)}&end_date=${ymd(b)}`
+      + `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum`).catch(() => null));
+  }
+  const days = (await Promise.all(reqs)).filter(Boolean).flatMap(j => j.daily.time.map((t, i) => ({
+    max: j.daily.temperature_2m_max[i], min: j.daily.temperature_2m_min[i], rain: j.daily.precipitation_sum[i] })))
+    .filter(x => x.max != null && x.min != null);
+  if (!days.length) throw new Error("no data");
+  const avg = k => days.reduce((s, x) => s + x[k], 0) / days.length;
+  return { max: avg("max"), min: avg("min"), wet: Math.round(100 * days.filter(x => (x.rain || 0) >= 1).length / days.length) };
+}
+
+async function renderWeather() {
+  const el = document.getElementById("weather");
+  if (!el) return;
+  const p = WX.sel || (WX.sel = (() => { const P = PLACES[DAYS[0].to]; return { name: P.name, alt: P.alt, lat: P.lat, lng: P.lng, d: 1 }; })());
+  const token = ++WX.token;
+  const tripDate = START ? dayDate(p.d) : null;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  let ahead = tripDate ? Math.round((tripDate - today) / 864e5) : null;
+  const head = `<div class="wx-head"><span>Weather</span><b>📍 ${p.name} · ${fmt(p.alt)} m · Day ${p.d}</b></div>`;
+  const tripLabel = `Day ${p.d}${tripDate ? " · " + fmtDate(tripDate) : ""}`;
+  el.innerHTML = head + `<div class="wx-block"><div class="wx-label">Today</div><div class="wx-body">Loading…</div></div>`
+    + `<div class="wx-block"><div class="wx-label">${tripLabel}</div><div class="wx-body">${tripDate ? "Loading…"
+      : "Set a start date in My trip to see the weather for this day."}</div></div>`
+    + `<p class="wx-hint">Choose a place on the map or the altitude chart to change.</p>`;
+  const [todayBody, tripBody] = el.querySelectorAll(".wx-body");
+
+  const fc = getJSON(`https://api.open-meteo.com/v1/forecast?${wxBase(p)}&current=temperature_2m,weather_code,wind_speed_10m`
+    + `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=7`);
+  try {
+    const j = await fc;
+    if (token !== WX.token) return;
+    const [ico, txt] = WMO(j.current.weather_code);
+    todayBody.innerHTML = `<span class="wx-ico">${ico}</span><span><b>${deg(j.current.temperature_2m)} ${txt}</b>`
+      + `<br>↑ ${deg(j.daily.temperature_2m_max[0])} ↓ ${deg(j.daily.temperature_2m_min[0])} · wind ${Math.round(j.current.wind_speed_10m)} km/h</span>`;
+  } catch (e) { if (token === WX.token) todayBody.textContent = "Weather needs an internet connection."; }
+
+  if (!tripDate) return;
+  try {
+    /* Days ahead counted on Nepal's calendar (the forecast's first day is "today" in Nepal) */
+    const j = await fc.catch(() => null);
+    const i = j ? j.daily.time.indexOf(ymd(tripDate)) : -1;
+    if (j && j.daily.time[0] > ymd(tripDate)) ahead = -1;
+    if (i >= 0 && i <= 5) {
+      if (token !== WX.token) return;
+      const [ico, txt] = WMO(j.daily.weather_code[i]);
+      tripBody.innerHTML = `<span class="wx-ico">${ico}</span><span><b>${txt}</b> · forecast`
+        + `<br>↑ ${deg(j.daily.temperature_2m_max[i])} ↓ ${deg(j.daily.temperature_2m_min[i])} · rain chance ${j.daily.precipitation_probability_max[i] ?? "–"}%</span>`;
+    } else {
+      const c = await climateFor(p, tripDate);
+      if (token !== WX.token) return;
+      const ico = c.wet >= 50 ? "🌧️" : c.wet >= 25 ? "🌦️" : "🌤️";
+      tripBody.innerHTML = `<span class="wx-ico">${ico}</span><span><b>Typically ↑ ${deg(c.max)} ↓ ${deg(c.min)}</b>`
+        + `<br>Rain or snow on ${c.wet}% of days around this date</span>`;
+      tripBody.insertAdjacentHTML("afterend", `<p class="wx-note">Forecast is based on statistical data only `
+        + `(${ahead >= 0 ? "more than 5 days ahead" : "date has passed"}; average of the last 10 years).</p>`);
+    }
+  } catch (e) { if (token === WX.token) tripBody.textContent = "Weather needs an internet connection."; }
+}
+
 /* ---------- Render everything that shows dates ---------- */
 function renderAll() {
   renderTrip();
   renderTable();
+  renderWeather();
   if (window.map) { map.closePopup(); map.eachLayer(l => l.closeTooltip && l.closeTooltip()); }
   if (window.closeChartTip) closeChartTip();
 }
