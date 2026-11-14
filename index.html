@@ -71,6 +71,9 @@
   #profile text { fill: var(--muted); font-size: 11px; }
   footer { color: var(--muted); font-size: .8rem; text-align: center; padding: 20px 16px 40px; }
   .leaflet-popup-content { font: 14px/1.4 system-ui, sans-serif; }
+  button.place { border: 0; background: none; padding: 0; font: inherit; color: var(--accent);
+    font-weight: 600; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+  button.place:hover { text-decoration-thickness: 2px; }
   .plane-badge { background: #7c3aed; color: #fff; border: 2px solid #fff; border-radius: 50%;
     display: flex; align-items: center; justify-content: center; font-size: 14px; line-height: 1;
     box-shadow: 0 1px 4px rgba(0,0,0,.4); }
@@ -101,6 +104,7 @@
   </section>
 
   <section id="tab-plan" hidden>
+    <p class="hint" style="margin:0 0 10px">Tap a place name to see it on the map.</p>
     <table>
       <thead><tr><th>Day</th><th>Starting point</th><th>Distance</th><th>Altitude</th><th>Description</th><th>Remarks</th></tr></thead>
       <tbody id="rows"></tbody>
@@ -181,11 +185,14 @@ function show(name) {
 tabs.forEach(b => b.addEventListener("click", () => show(b.dataset.tab)));
 
 /* Table */
+const place = name => `<button type="button" class="place" data-place="${name}" title="Show ${name} on the map">${name}</button>`;
 document.getElementById("rows").innerHTML = DAYS.map(x => {
-  const alt = x.pass ? `${fmt(x.pass.alt)} m (${x.pass.name}) / ${fmt(x.alt)} m (${x.to})` : `${fmt(x.alt)} m (${x.to})`;
+  const alt = x.pass ? `${fmt(x.pass.alt)} m (${place(x.pass.name)}) / ${fmt(x.alt)} m (${place(x.to)})` : `${fmt(x.alt)} m (${place(x.to)})`;
+  const [fromName, ...fromRest] = x.from.split(" (");
+  const from = place(fromName) + (fromRest.length ? " (" + fromRest.join(" (") : "");
   return `<tr id="day-${x.d}">
     <td class="day">Day ${x.d}${tag(x.type)}</td>
-    <td data-label="Starting point">${x.from}</td>
+    <td data-label="Starting point">${from}</td>
     <td data-label="Distance">${x.dist}</td>
     <td data-label="Altitude">${alt}</td>
     <td data-label="Description">${x.desc}</td>
@@ -199,6 +206,24 @@ function goToDay(d) {
   row.classList.add("focus");
   row.scrollIntoView({ behavior: "smooth", block: "center" });
 }
+
+/* Place names in the plan open the map centered on that place */
+const PINS = {};
+function goToPlace(name) {
+  const m = PINS[name];
+  if (!m) return;
+  show("map");
+  document.getElementById("map").scrollIntoView({ behavior: "smooth", block: "center" });
+  setTimeout(() => {
+    map.invalidateSize();
+    map.setView(m.getLatLng(), 12, { animate: false });
+    m.openPopup();
+  }, 80);
+}
+document.getElementById("rows").addEventListener("click", e => {
+  const b = e.target.closest("button.place");
+  if (b) goToPlace(b.dataset.place);
+});
 
 /* Map */
 try {
@@ -225,9 +250,9 @@ try {
     L.marker([(f.a[0] + f.b[0]) / 2, (f.a[1] + f.b[1]) / 2], { icon: planeIcon, keyboard: false })
       .bindTooltip(f.label).addTo(map);
   });
-  const pin = (lat, lng, label, html, color) => L.circleMarker([lat, lng], {
-      radius: 8, color: "#fff", weight: 2, fillColor: color, fillOpacity: 1 })
-    .bindTooltip(label, { permanent: false }).bindPopup(html).addTo(map);
+  const pin = (lat, lng, label, html, color) => PINS[label] = L.circleMarker([lat, lng], {
+      radius: 8, color: "#fff", weight: 2, fillColor: color, fillOpacity: 1, autoPan: false })
+    .bindTooltip(label, { permanent: false }).bindPopup(html, { autoPan: false }).addTo(map);
   pin(...ktm, "Kathmandu", "<b>Kathmandu</b><br>Start (day 1) and end (day 14)", "#1d3b53");
   DAYS.forEach(x => {
     if (x.d === 8 || x.d === 14) return;
