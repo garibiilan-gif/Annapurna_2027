@@ -282,13 +282,13 @@ const PLACES = {};          // one per map pin
 })();
 
 /* ---------- One card for every location point (map hover, map popup, altitude chart) ---------- */
+const photoBlock = (f, alt, popup) => !f ? "" : popup
+  ? `<a class="pop-photo" href="${f.page}" target="_blank" rel="noopener"><img src="${f.src}" alt="${alt}" loading="lazy"></a>`
+    + `<div class="pop-credit">Photo: <a href="${f.page}" target="_blank" rel="noopener">${f.by}</a>, ${f.lic}</div>`
+  : `<span class="pop-photo"><img src="${f.src}" alt="${alt}" loading="lazy"></span>`
+    + `<div class="pop-credit">Photo: ${f.by}, ${f.lic}</div>`;
 function placeCard(pt, { popup = false } = {}) {
-  const f = PHOTOS[pt.name];
-  const photo = !f ? "" : popup
-    ? `<a class="pop-photo" href="${f.page}" target="_blank" rel="noopener"><img src="${f.src}" alt="${pt.name}" loading="lazy"></a>`
-      + `<div class="pop-credit">Photo: <a href="${f.page}" target="_blank" rel="noopener">${f.by}</a>, ${f.lic}</div>`
-    : `<span class="pop-photo"><img src="${f.src}" alt="${pt.name}" loading="lazy"></span>`
-      + `<div class="pop-credit">Photo: ${f.by}, ${f.lic}</div>`;
+  const photo = photoBlock(PHOTOS[pt.name], pt.name, popup);
   const visits = pt.visits.map(v => `<span>${v.label}${START ? `<em class="when">📅 ${dateOf(v.d)}</em>` : ""}</span>`).join("");
   const links = popup ? `<span class="links">${[...new Set(pt.visits.map(v => v.d))]
     .map(d => `<a href="#" onclick="goToDay(${d});return false">Open day ${d}</a>`).join(" · ")}</span>` : "";
@@ -452,6 +452,28 @@ const PHOTOS = {
   "page": "https://commons.wikimedia.org/wiki/File:Phewa_Lake_of_Pokhara_city.jpg"
  }
 };
+/* Transport photos: Wikimedia Commons, credited on each card */
+const LEG_PHOTOS = {
+ "Jeep: Kathmandu → Besisahar": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e9/Jeep_%28from_Ghasa_to_Tatopani%29_%284523584897%29.jpg/500px-Jeep_%28from_Ghasa_to_Tatopani%29_%284523584897%29.jpg",
+  "by": "Greg Willis",
+  "lic": "CC BY-SA 2.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Jeep_(from_Ghasa_to_Tatopani)_(4523584897).jpg"
+ },
+ "Flight: Jomsom → Pokhara": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e5/Tara_Air_Twin_Otter_in_Jomsom.jpg/500px-Tara_Air_Twin_Otter_in_Jomsom.jpg",
+  "by": "Solundir",
+  "lic": "CC BY-SA 3.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Tara_Air_Twin_Otter_in_Jomsom.jpg"
+ },
+ "Flight: Pokhara → Kathmandu": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/79/Buddha_Air_in_Pokhara_Airport.jpg/500px-Buddha_Air_in_Pokhara_Airport.jpg",
+  "by": "Gaurav Dhwaj Khadka",
+  "lic": "CC BY-SA 4.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Buddha_Air_in_Pokhara_Airport.jpg"
+ }
+};
+
 /* ---------- Map ---------- */
 try {
   window.map = L.map("map", { scrollWheelZoom: true });
@@ -463,31 +485,35 @@ try {
     .flatMap(x => x.pass ? [[x.pass.lat, x.pass.lng], [x.lat, x.lng]] : [[x.lat, x.lng]]);
   trekLine.unshift([DAYS[0].lat, DAYS[0].lng]);
   /* Cards are functions so they always show the current trip dates */
-  const legCard = f => () => `<div class="hover-card"><b>${f.label}</b>`
-    + (START ? `<em class="when">📅 ${dateOf(f.d)}</em>` : "") + `<span>⏱ ${f.time}</span></div>`;
-  const tipTop = { direction: "top", offset: [0, -12], opacity: 1 };
+  const legCard = (f, popup = false) => () => `<div class="hover-card${popup ? " in-popup" : ""}">`
+    + photoBlock(LEG_PHOTOS[f.photo], f.photo, popup) + `<b>${f.label}</b>`
+    + (START ? `<em class="when">📅 ${dateOf(f.d)}</em>` : "") + `<span>⏱ ${f.time}</span>`
+    + (popup ? `<span class="links"><a href="#" onclick="goToDay(${f.d});return false">Open day ${f.d}</a></span>` : "") + `</div>`;
+  /* Badges and dashed lines: hover shows the card, click opens it with photo credit and link */
+  const legLayer = (layer, f, tipOpts) => layer
+    .bindTooltip(legCard(f), { ...tipOpts, opacity: 1, className: "place-tip" })
+    .bindPopup(legCard(f, true), { autoPan: false, maxWidth: 260, minWidth: 240 })
+    .on("popupopen", e => e.target.closeTooltip())
+    .addTo(map);
+  const tipTop = { direction: "top", offset: [0, -12] };
   /* Jeep: same treatment as the flights, in teal with a jeep badge */
-  const jeep = { a: ktm, b: [DAYS[0].lat, DAYS[0].lng], d: 1, label: "Day 1 jeep: Kathmandu → Besisahar", time: "6–8 h by private jeep" };
+  const jeep = { a: ktm, b: [DAYS[0].lat, DAYS[0].lng], d: 1, label: "Day 1 jeep: Kathmandu → Besisahar", time: "6–8 h by private jeep", photo: "Jeep: Kathmandu → Besisahar" };
   L.polyline([jeep.a, jeep.b], { color: "#fff", weight: 8, opacity: .9 }).addTo(map);
-  L.polyline([jeep.a, jeep.b], { color: "#0e7490", weight: 4, dashArray: "12 8" })
-    .bindTooltip(legCard(jeep), { sticky: true, opacity: 1 }).addTo(map);
-  L.marker([jeep.a[0] + (jeep.b[0] - jeep.a[0]) * .3, jeep.a[1] + (jeep.b[1] - jeep.a[1]) * .3], { keyboard: false,
-    icon: L.divIcon({ className: "plane-badge jeep-badge", html: "🚙", iconSize: [26, 26], iconAnchor: [13, 13] }) })
-    .bindTooltip(legCard(jeep), tipTop).addTo(map);
+  legLayer(L.polyline([jeep.a, jeep.b], { color: "#0e7490", weight: 4, dashArray: "12 8" }), jeep, { sticky: true });
+  legLayer(L.marker([jeep.a[0] + (jeep.b[0] - jeep.a[0]) * .3, jeep.a[1] + (jeep.b[1] - jeep.a[1]) * .3], { keyboard: false,
+    icon: L.divIcon({ className: "plane-badge jeep-badge", html: "🚙", iconSize: [26, 26], iconAnchor: [13, 13] }) }), jeep, tipTop);
   L.polyline(trekLine, { color: "#c2410c", weight: 4 }).addTo(map);
   /* Flights: white casing under a bold dashed line, plus a plane badge on each leg */
   const flights = [
-    { a: [28.7811, 83.7233], b: [28.2096, 83.9856], d: 13, label: "Day 13 flight: Jomsom → Pokhara", time: "20–25 min flight" },
-    { a: [28.2096, 83.9856], b: ktm, d: 14, label: "Day 14 flight: Pokhara → Kathmandu", time: "25–30 min flight", t: .3 }
+    { a: [28.7811, 83.7233], b: [28.2096, 83.9856], d: 13, label: "Day 13 flight: Jomsom → Pokhara", time: "20–25 min flight", photo: "Flight: Jomsom → Pokhara" },
+    { a: [28.2096, 83.9856], b: ktm, d: 14, label: "Day 14 flight: Pokhara → Kathmandu", time: "25–30 min flight", t: .3, photo: "Flight: Pokhara → Kathmandu" }
   ];
   const planeIcon = L.divIcon({ className: "plane-badge", html: "✈", iconSize: [26, 26], iconAnchor: [13, 13] });
   flights.forEach(f => {
     L.polyline([f.a, f.b], { color: "#fff", weight: 8, opacity: .9 }).addTo(map);
-    L.polyline([f.a, f.b], { color: "#7c3aed", weight: 4, dashArray: "12 8" })
-      .bindTooltip(legCard(f), { sticky: true, opacity: 1 }).addTo(map);
+    legLayer(L.polyline([f.a, f.b], { color: "#7c3aed", weight: 4, dashArray: "12 8" }), f, { sticky: true });
     const t = f.t ?? .5;
-    L.marker([f.a[0] + (f.b[0] - f.a[0]) * t, f.a[1] + (f.b[1] - f.a[1]) * t], { icon: planeIcon, keyboard: false })
-      .bindTooltip(legCard(f), tipTop).addTo(map);
+    legLayer(L.marker([f.a[0] + (f.b[0] - f.a[0]) * t, f.a[1] + (f.b[1] - f.a[1]) * t], { icon: planeIcon, keyboard: false }), f, tipTop);
   });
   /* Place pins: hover shows the card, click opens the same card with links */
   Object.values(PLACES).forEach(pt => {
