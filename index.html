@@ -71,6 +71,9 @@
   #profile text { fill: var(--muted); font-size: 11px; }
   footer { color: var(--muted); font-size: .8rem; text-align: center; padding: 20px 16px 40px; }
   .leaflet-popup-content { font: 14px/1.4 system-ui, sans-serif; }
+  .plane-badge { background: #7c3aed; color: #fff; border: 2px solid #fff; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; font-size: 14px; line-height: 1;
+    box-shadow: 0 1px 4px rgba(0,0,0,.4); }
 </style>
 </head>
 <body>
@@ -209,7 +212,19 @@ try {
   trekLine.unshift([DAYS[0].lat, DAYS[0].lng]);
   L.polyline([ktm, [DAYS[0].lat, DAYS[0].lng]], { color: "#6b5bb5", weight: 3, dashArray: "6 6" }).addTo(map);
   L.polyline(trekLine, { color: "#c2410c", weight: 4 }).addTo(map);
-  L.polyline([[28.7811, 83.7233], [28.2096, 83.9856], ktm], { color: "#6b5bb5", weight: 2, dashArray: "2 8" }).addTo(map);
+  /* Flights: white casing under a bold dashed line, plus a plane badge on each leg */
+  const flights = [
+    { a: [28.7811, 83.7233], b: [28.2096, 83.9856], label: "Day 13 flight: Jomsom → Pokhara" },
+    { a: [28.2096, 83.9856], b: ktm, label: "Day 14 flight: Pokhara → Kathmandu" }
+  ];
+  const planeIcon = L.divIcon({ className: "plane-badge", html: "✈", iconSize: [26, 26], iconAnchor: [13, 13] });
+  flights.forEach(f => {
+    L.polyline([f.a, f.b], { color: "#fff", weight: 8, opacity: .9 }).addTo(map);
+    L.polyline([f.a, f.b], { color: "#7c3aed", weight: 4, dashArray: "12 8" })
+      .bindTooltip(f.label, { sticky: true }).addTo(map);
+    L.marker([(f.a[0] + f.b[0]) / 2, (f.a[1] + f.b[1]) / 2], { icon: planeIcon, keyboard: false })
+      .bindTooltip(f.label).addTo(map);
+  });
   const pin = (lat, lng, label, html, color) => L.circleMarker([lat, lng], {
       radius: 8, color: "#fff", weight: 2, fillColor: color, fillOpacity: 1 })
     .bindTooltip(label, { permanent: false }).bindPopup(html).addTo(map);
