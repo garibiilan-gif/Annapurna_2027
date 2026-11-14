@@ -74,6 +74,9 @@
   button.place { border: 0; background: none; padding: 0; font: inherit; color: var(--accent);
     font-weight: 600; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
   button.place:hover { text-decoration-thickness: 2px; }
+  .hover-card { display: flex; flex-direction: column; gap: 1px; font: 13px/1.35 system-ui, sans-serif; }
+  .hover-card b { font-size: 14px; }
+  .hover-card span { color: #444; }
   .plane-badge { background: #7c3aed; color: #fff; border: 2px solid #fff; border-radius: 50%;
     display: flex; align-items: center; justify-content: center; font-size: 14px; line-height: 1;
     box-shadow: 0 1px 4px rgba(0,0,0,.4); }
@@ -250,17 +253,24 @@ try {
     L.marker([(f.a[0] + f.b[0]) / 2, (f.a[1] + f.b[1]) / 2], { icon: planeIcon, keyboard: false })
       .bindTooltip(f.label).addTo(map);
   });
-  const pin = (lat, lng, label, html, color) => PINS[label] = L.circleMarker([lat, lng], {
+  /* Hover card: place name, which day ends there, altitude */
+  const card = (name, when, alt) =>
+    `<div class="hover-card"><b>${name}</b><span>${when}</span><span>⛰ ${fmt(alt)} m</span></div>`;
+  const pin = (lat, lng, label, html, color, hover) => PINS[label] = L.circleMarker([lat, lng], {
       radius: 8, color: "#fff", weight: 2, fillColor: color, fillOpacity: 1, autoPan: false })
-    .bindTooltip(label, { permanent: false }).bindPopup(html, { autoPan: false }).addTo(map);
-  pin(...ktm, "Kathmandu", "<b>Kathmandu</b><br>Start (day 1) and end (day 14)", "#1d3b53");
+    .bindTooltip(hover, { direction: "top", offset: [0, -8], opacity: 1 })
+    .bindPopup(html, { autoPan: false }).addTo(map);
+  pin(...ktm, "Kathmandu", "<b>Kathmandu</b><br>Start (day 1) and end (day 14)", "#1d3b53",
+    card("Kathmandu", "Start of day 1 · End of day 14", 1400));
   DAYS.forEach(x => {
     if (x.d === 8 || x.d === 14) return;
     const nights = x.d === 7 ? "Nights 7–8" : "Night " + x.d;
+    const when = x.d === 7 ? "End of day 7 · Rest day 8" : "End of day " + x.d;
     pin(x.lat, x.lng, x.to, `<b>${x.to}</b> · ${fmt(x.alt)} m<br>${nights}<br><a href="#" onclick="goToDay(${x.d});return false">Open day ${x.d}</a>`,
-      x.type === "flight" ? "#6b5bb5" : "#c2410c");
+      x.type === "flight" ? "#6b5bb5" : "#c2410c", card(x.to, when, x.alt));
     if (x.pass) pin(x.pass.lat, x.pass.lng, x.pass.name,
-      `<b>${x.pass.name}</b> · ${fmt(x.pass.alt)} m<br>Highest point, day 11`, "#e11d48");
+      `<b>${x.pass.name}</b> · ${fmt(x.pass.alt)} m<br>Highest point, day ${x.d}`, "#e11d48",
+      card(x.pass.name, `Crossed on day ${x.d} · Highest point`, x.pass.alt));
   });
   map.fitBounds(L.latLngBounds([ktm, ...trekLine, [28.2096, 83.9856]]), { padding: [20, 20] });
 } catch (e) {
