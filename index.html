@@ -114,6 +114,20 @@
   .wx-ico { font-size: 1.9rem; line-height: 1; }
   .wx-note { margin: 6px 0 0; font-size: .78rem; color: #ffd9bd; }
   .wx-hint { margin: 8px 0 0; font-size: .74rem; opacity: .7; }
+  /* Banner photo: snowy Annapurna range (Ali Sabbagh, CC0, Wikimedia Commons) */
+  header { background: linear-gradient(180deg, rgba(10,26,42,.35), rgba(10,26,42,.6)),
+      url("https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8b/Snowy_Annapurna_Range_-_panorama.jpg/1280px-Snowy_Annapurna_Range_-_panorama.jpg") center 35% / cover no-repeat, var(--sky); }
+  @media (min-width: 900px) {
+    header { background-image: linear-gradient(90deg, rgba(10,26,42,.66) 0%, rgba(10,26,42,.22) 50%, rgba(10,26,42,.4) 100%),
+      url("https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8b/Snowy_Annapurna_Range_-_panorama.jpg/1280px-Snowy_Annapurna_Range_-_panorama.jpg"); background-position: center 40%; }
+  }
+  @media (min-width: 1300px) {
+    header { background-image: linear-gradient(90deg, rgba(10,26,42,.66) 0%, rgba(10,26,42,.22) 50%, rgba(10,26,42,.4) 100%),
+      url("https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8b/Snowy_Annapurna_Range_-_panorama.jpg/1920px-Snowy_Annapurna_Range_-_panorama.jpg"); }
+  }
+  header h1, header > .hero-main > p { text-shadow: 0 1px 6px rgba(0,0,0,.5); }
+  .stat, .mytrip, .weather { background: rgba(10,26,42,.48) !important; border: 1px solid rgba(255,255,255,.18);
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
   .hover-card { display: flex; flex-direction: column; gap: 1px; font: 13px/1.35 system-ui, sans-serif; }
   .hover-card b { font-size: 14px; }
   .hover-card span { color: #444; }
@@ -175,7 +189,7 @@
   </section>
 </main>
 
-<footer>Itinerary from Red Swissa Trekking Agency's 2026 package. Altitudes and times are approximate.<br>Place photos from Wikimedia Commons under Creative Commons licenses; each photo is credited on its card.</footer>
+<footer>Itinerary from Red Swissa Trekking Agency's 2026 package. Altitudes and times are approximate.<br>Place photos from Wikimedia Commons under Creative Commons licenses; each photo is credited on its card.<br>Banner: <a href="https://commons.wikimedia.org/wiki/File:Snowy_Annapurna_Range_-_panorama.jpg" target="_blank" rel="noopener">Snowy Annapurna Range</a> by Ali Sabbagh (CC0).</footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
@@ -493,6 +507,8 @@ const LEG_PHOTOS = {
 /* ---------- Map ---------- */
 try {
   window.map = L.map("map", { scrollWheelZoom: true });
+  /* Start with a view right away: Leaflet only re-measures its box once it has one */
+  map.setView([28.5, 84.1], 9, { animate: false });
   L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
     maxZoom: 15, attribution: "© OpenStreetMap contributors, SRTM | © OpenTopoMap"
   }).addTo(map);
@@ -542,8 +558,20 @@ try {
       .addTo(map);
   });
   /* Every launch opens on the trekking route itself (Besisahar → Thorung La → Jomsom) */
-  window.fitTrek = () => { map.invalidateSize(); map.fitBounds(L.latLngBounds(trekLine), { padding: [24, 24] }); };
-  fitTrek();
+  let fitting = false, userMoved = false;
+  window.fitTrek = () => {
+    fitting = true;
+    map.invalidateSize();
+    map.fitBounds(L.latLngBounds(trekLine), { padding: [24, 24], animate: false });
+    fitting = false;
+  };
+  map.on("dragstart zoomstart", () => { if (!fitting) userMoved = true; });
+  /* Fit as soon as the map has a real size (slow connections, hidden panes, phone rotation),
+     until the visitor moves the map themselves */
+  const box = map.getContainer();
+  const refit = () => { if (!userMoved && box.clientWidth > 50 && box.clientHeight > 50) fitTrek(); };
+  if ("ResizeObserver" in window) new ResizeObserver(refit).observe(box);
+  refit();
   window.addEventListener("pageshow", e => { if (e.persisted) { show("map"); window.scrollTo(0, 0); fitTrek(); } });
   const Recenter = L.Control.extend({ options: { position: "topleft" }, onAdd() {
     const b = L.DomUtil.create("a", "leaflet-bar recenter");
