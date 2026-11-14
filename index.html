@@ -83,6 +83,9 @@
   .recenter { display: block; width: 30px; height: 30px; line-height: 28px; text-align: center; font-size: 20px;
     background: #fff; color: #333 !important; text-decoration: none; border-radius: 4px; }
   .recenter:hover { background: #f4f4f4; }
+  .pop-photo img { display: block; width: 240px; height: 150px; object-fit: cover; border-radius: 6px; background: #e9e5de; }
+  .pop-credit { font-size: 10.5px; color: #777; margin: 3px 0 7px; }
+  .pop-credit a { color: #777; }
   .hover-card { display: flex; flex-direction: column; gap: 1px; font: 13px/1.35 system-ui, sans-serif; }
   .hover-card b { font-size: 14px; }
   .hover-card span { color: #444; }
@@ -132,7 +135,7 @@
   </section>
 </main>
 
-<footer>Itinerary from Red Swissa Trekking Agency's 2026 package. Altitudes and times are approximate.</footer>
+<footer>Itinerary from Red Swissa Trekking Agency's 2026 package. Altitudes and times are approximate.<br>Place photos from Wikimedia Commons under Creative Commons licenses; each photo is credited in its map popup.</footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
@@ -237,6 +240,97 @@ document.getElementById("rows").addEventListener("click", e => {
   if (b) goToPlace(b.dataset.place);
 });
 
+/* Place photos: Wikimedia Commons, credited in each popup */
+const PHOTOS = {
+ "Kathmandu": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c4/Kathmandu_Durbar_Square%2C_Shiva_Parvati_Temple%2C_Nepal_%28edit%29.jpg/500px-Kathmandu_Durbar_Square%2C_Shiva_Parvati_Temple%2C_Nepal_%28edit%29.jpg",
+  "by": "Vyacheslav Argenberg",
+  "lic": "CC BY 4.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Kathmandu_Durbar_Square,_Shiva_Parvati_Temple,_Nepal_(edit).jpg"
+ },
+ "Besisahar": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/65/Besi_Sahar.JPG/500px-Besi_Sahar.JPG",
+  "by": "Dmitry A. Mottl",
+  "lic": "CC BY-SA 3.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Besi_Sahar.JPG"
+ },
+ "Bahundanda": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f2/Bahundanda_village_-_Annapurna_Circuit%2C_Nepal_-_panoramio.jpg/500px-Bahundanda_village_-_Annapurna_Circuit%2C_Nepal_-_panoramio.jpg",
+  "by": "Sergey Ashmarin",
+  "lic": "CC BY-SA 3.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Bahundanda_village_-_Annapurna_Circuit,_Nepal_-_panoramio.jpg"
+ },
+ "Tal": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/34/Tal%2C_Manang%2C_Nepal.jpg/500px-Tal%2C_Manang%2C_Nepal.jpg",
+  "by": "Kondephy",
+  "lic": "CC BY-SA 4.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Tal,_Manang,_Nepal.jpg"
+ },
+ "Dharapani": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ad/Dharapani_village.jpg/500px-Dharapani_village.jpg",
+  "by": "Solundir",
+  "lic": "CC BY-SA 3.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Dharapani_village.jpg"
+ },
+ "Chame": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b8/Prayer_Wheels_-_Chame%2C_Nepal_-_panoramio.jpg/500px-Prayer_Wheels_-_Chame%2C_Nepal_-_panoramio.jpg",
+  "by": "Sergey Ashmarin",
+  "lic": "CC BY-SA 3.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Prayer_Wheels_-_Chame,_Nepal_-_panoramio.jpg"
+ },
+ "Upper Pisang": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/64/Upper_Pisang_-_Annapurna_Circuit%2C_Nepal_-_panoramio.jpg/500px-Upper_Pisang_-_Annapurna_Circuit%2C_Nepal_-_panoramio.jpg",
+  "by": "Sergey Ashmarin",
+  "lic": "CC BY-SA 3.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Upper_Pisang_-_Annapurna_Circuit,_Nepal_-_panoramio.jpg"
+ },
+ "Manang": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1a/Manang_Annapurna3_Gangapurna.jpg/500px-Manang_Annapurna3_Gangapurna.jpg",
+  "by": "Solundir",
+  "lic": "CC BY-SA 3.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Manang_Annapurna3_Gangapurna.jpg"
+ },
+ "Yak Kharka": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/40/Yak_Kharka_%284020_m%29_-_Annapurna_Circuit%2C_Nepal_-_panoramio.jpg/500px-Yak_Kharka_%284020_m%29_-_Annapurna_Circuit%2C_Nepal_-_panoramio.jpg",
+  "by": "Sergey Ashmarin",
+  "lic": "CC BY-SA 3.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Yak_Kharka_(4020_m)_-_Annapurna_Circuit,_Nepal_-_panoramio.jpg"
+ },
+ "Thorung Phedi": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/60/Way_to_Thorong_Phedi_-_Annapurna_Circuit%2C_Nepal_-_panoramio.jpg/500px-Way_to_Thorong_Phedi_-_Annapurna_Circuit%2C_Nepal_-_panoramio.jpg",
+  "by": "Sergey Ashmarin",
+  "lic": "CC BY-SA 3.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Way_to_Thorong_Phedi_-_Annapurna_Circuit,_Nepal_-_panoramio.jpg"
+ },
+ "Thorung La": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ef/Thorong_la.jpg/500px-Thorong_la.jpg",
+  "by": "Kondephy",
+  "lic": "CC BY-SA 4.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Thorong_la.jpg"
+ },
+ "Muktinath": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fa/Muktinath_Temple_%281%29.jpg/500px-Muktinath_Temple_%281%29.jpg",
+  "by": "Faj2323",
+  "lic": "CC BY-SA 4.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Muktinath_Temple_(1).jpg"
+ },
+ "Jomsom": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/cb/Mustang_jomsom.jpg/500px-Mustang_jomsom.jpg",
+  "by": "Utsab Raj Giri",
+  "lic": "CC BY-SA 4.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Mustang_jomsom.jpg"
+ },
+ "Pokhara": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0c/Phewa_Lake_of_Pokhara_city.jpg/500px-Phewa_Lake_of_Pokhara_city.jpg",
+  "by": "Iamavinashk",
+  "lic": "CC BY-SA 4.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Phewa_Lake_of_Pokhara_city.jpg"
+ }
+};
+const photoHtml = name => { const f = PHOTOS[name]; if (!f) return "";
+  return `<a class="pop-photo" href="${f.page}" target="_blank" rel="noopener"><img src="${f.src}" alt="${name}" loading="lazy"></a>`
+    + `<div class="pop-credit">Photo: <a href="${f.page}" target="_blank" rel="noopener">${f.by}</a>, ${f.lic}</div>`; };
+
 /* Map */
 try {
   window.map = L.map("map", { scrollWheelZoom: true });
@@ -277,7 +371,7 @@ try {
   const pin = (lat, lng, label, html, color, hover) => PINS[label] = L.circleMarker([lat, lng], {
       radius: 8, color: "#fff", weight: 2, fillColor: color, fillOpacity: 1, autoPan: false })
     .bindTooltip(hover, { direction: "top", offset: [0, -8], opacity: 1 })
-    .bindPopup(html, { autoPan: false }).addTo(map);
+    .bindPopup(photoHtml(label) + html, { autoPan: false, maxWidth: 260, minWidth: 240 }).addTo(map);
   pin(...ktm, "Kathmandu", "<b>Kathmandu</b><br>Start (day 1) and end (day 14)", "#1d3b53",
     card("Kathmandu", "Start of day 1 · End of day 14", 1400));
   DAYS.forEach(x => {

@@ -1,5 +1,5 @@
 // Offline cache: the app itself up front, map tiles as they are viewed.
-const APP = "annapurna-app-v9";
+const APP = "annapurna-app-v10";
 const TILES = "annapurna-tiles-v1";
 const SHELL = [
   "./", "index.html", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png",
@@ -17,7 +17,7 @@ self.addEventListener("activate", e => {
 self.addEventListener("fetch", e => {
   const url = e.request.url;
   if (e.request.method !== "GET") return;
-  if (url.includes("tile.opentopomap.org")) {
+  if (url.includes("tile.opentopomap.org") || url.includes("upload.wikimedia.org")) {
     e.respondWith(caches.open(TILES).then(async c => {
       const hit = await c.match(e.request);
       if (hit) return hit;
