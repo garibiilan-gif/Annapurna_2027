@@ -80,6 +80,9 @@
     border-radius: 6px; padding: 6px 9px; box-shadow: 0 1px 4px rgba(0,0,0,.25); pointer-events: none; max-width: 260px; }
   .pt { cursor: pointer; outline: none; }
   .pt.on .dot { r: 7; }
+  .recenter { display: block; width: 30px; height: 30px; line-height: 28px; text-align: center; font-size: 20px;
+    background: #fff; color: #333 !important; text-decoration: none; border-radius: 4px; }
+  .recenter:hover { background: #f4f4f4; }
   .hover-card { display: flex; flex-direction: column; gap: 1px; font: 13px/1.35 system-ui, sans-serif; }
   .hover-card b { font-size: 14px; }
   .hover-card span { color: #444; }
@@ -287,7 +290,16 @@ try {
       `<b>${x.pass.name}</b> · ${fmt(x.pass.alt)} m<br>Highest point, day ${x.d}`, "#e11d48",
       card(x.pass.name, `Crossed on day ${x.d} · Highest point`, x.pass.alt));
   });
-  map.fitBounds(L.latLngBounds([ktm, ...trekLine, [28.2096, 83.9856]]), { padding: [20, 20] });
+  /* Every launch opens on the trekking route itself (Besisahar → Thorung La → Jomsom) */
+  window.fitTrek = () => { map.invalidateSize(); map.fitBounds(L.latLngBounds(trekLine), { padding: [24, 24] }); };
+  fitTrek();
+  window.addEventListener("pageshow", e => { if (e.persisted) { show("map"); window.scrollTo(0, 0); fitTrek(); } });
+  const Recenter = L.Control.extend({ options: { position: "topleft" }, onAdd() {
+    const b = L.DomUtil.create("a", "leaflet-bar recenter");
+    b.href = "#"; b.title = "Back to the trek"; b.setAttribute("role", "button"); b.innerHTML = "⌖";
+    L.DomEvent.on(b, "click", e => { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); map.closePopup(); fitTrek(); });
+    return b; } });
+  map.addControl(new Recenter());
 } catch (e) {
   document.getElementById("map").innerHTML = '<p style="padding:16px">The map needs a connection the first time it opens. The day-by-day plan and altitude chart work offline.</p>';
 }
@@ -357,6 +369,9 @@ try {
   box.querySelector("svg").addEventListener("pointerleave", e => { if (e.pointerType === "mouse") close(); });
   document.addEventListener("click", e => { if (!box.contains(e.target)) close(); });
 })();
+
+/* Always start at the top, on the Map tab */
+if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 
 /* Offline support */
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
