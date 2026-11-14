@@ -1,5 +1,5 @@
 // Offline cache: the app itself up front, map tiles as they are viewed.
-const APP = "annapurna-app-v15";
+const APP = "annapurna-app-v16";
 const TILES = "annapurna-tiles-v1";
 const SHELL = [
   "./", "index.html", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png",
@@ -29,7 +29,10 @@ self.addEventListener("fetch", e => {
     return;
   }
   // App files: network first so updates arrive, cache when offline.
-  e.respondWith(fetch(e.request).then(res => {
+  // Same-origin files skip the browser's 10-minute cache so updates show on the next reload.
+  const sameOrigin = new URL(url).origin === self.location.origin;
+  const req = sameOrigin ? fetch(url, { cache: "no-cache", credentials: "same-origin" }) : fetch(e.request);
+  e.respondWith(req.then(res => {
     if (res.ok) caches.open(APP).then(c => c.put(e.request, res.clone()));
     return res;
   }).catch(() => caches.match(e.request).then(r => r || caches.match("index.html"))));
