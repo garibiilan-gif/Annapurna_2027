@@ -240,27 +240,28 @@ try {
     .flatMap(x => x.pass ? [[x.pass.lat, x.pass.lng], [x.lat, x.lng]] : [[x.lat, x.lng]]);
   trekLine.unshift([DAYS[0].lat, DAYS[0].lng]);
   /* Jeep: same treatment as the flights, in teal with a jeep badge */
-  const jeep = { a: ktm, b: [DAYS[0].lat, DAYS[0].lng], label: "Day 1 jeep: Kathmandu → Besisahar" };
+  const jeep = { a: ktm, b: [DAYS[0].lat, DAYS[0].lng], label: "Day 1 jeep: Kathmandu → Besisahar", time: "6–8 h by private jeep" };
+  const legCard = f => `<div class="hover-card"><b>${f.label}</b><span>⏱ ${f.time}</span></div>`;
   L.polyline([jeep.a, jeep.b], { color: "#fff", weight: 8, opacity: .9 }).addTo(map);
   L.polyline([jeep.a, jeep.b], { color: "#0e7490", weight: 4, dashArray: "12 8" })
-    .bindTooltip(jeep.label, { sticky: true }).addTo(map);
+    .bindTooltip(legCard(jeep), { sticky: true, opacity: 1 }).addTo(map);
   L.marker([jeep.a[0] + (jeep.b[0] - jeep.a[0]) * .3, jeep.a[1] + (jeep.b[1] - jeep.a[1]) * .3], { keyboard: false,
     icon: L.divIcon({ className: "plane-badge jeep-badge", html: "🚙", iconSize: [26, 26], iconAnchor: [13, 13] }) })
-    .bindTooltip(jeep.label).addTo(map);
+    .bindTooltip(legCard(jeep), { direction: "top", offset: [0, -12], opacity: 1 }).addTo(map);
   L.polyline(trekLine, { color: "#c2410c", weight: 4 }).addTo(map);
   /* Flights: white casing under a bold dashed line, plus a plane badge on each leg */
   const flights = [
-    { a: [28.7811, 83.7233], b: [28.2096, 83.9856], label: "Day 13 flight: Jomsom → Pokhara" },
-    { a: [28.2096, 83.9856], b: ktm, label: "Day 14 flight: Pokhara → Kathmandu", t: .3 }
+    { a: [28.7811, 83.7233], b: [28.2096, 83.9856], label: "Day 13 flight: Jomsom → Pokhara", time: "20–25 min flight" },
+    { a: [28.2096, 83.9856], b: ktm, label: "Day 14 flight: Pokhara → Kathmandu", time: "25–30 min flight", t: .3 }
   ];
   const planeIcon = L.divIcon({ className: "plane-badge", html: "✈", iconSize: [26, 26], iconAnchor: [13, 13] });
   flights.forEach(f => {
     L.polyline([f.a, f.b], { color: "#fff", weight: 8, opacity: .9 }).addTo(map);
     L.polyline([f.a, f.b], { color: "#7c3aed", weight: 4, dashArray: "12 8" })
-      .bindTooltip(f.label, { sticky: true }).addTo(map);
+      .bindTooltip(legCard(f), { sticky: true, opacity: 1 }).addTo(map);
     const t = f.t ?? .5;
     L.marker([f.a[0] + (f.b[0] - f.a[0]) * t, f.a[1] + (f.b[1] - f.a[1]) * t], { icon: planeIcon, keyboard: false })
-      .bindTooltip(f.label).addTo(map);
+      .bindTooltip(legCard(f), { direction: "top", offset: [0, -12], opacity: 1 }).addTo(map);
   });
   /* Hover card: place name, which day ends there, altitude */
   const card = (name, when, alt) =>
