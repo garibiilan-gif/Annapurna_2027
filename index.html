@@ -75,6 +75,11 @@
     font-weight: 600; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
   button.place:hover { text-decoration-thickness: 2px; }
   .jeep-badge { background: #0e7490 !important; font-size: 13px !important; }
+  #profile-chart { position: relative; }
+  .chart-tip { position: absolute; z-index: 5; background: #fff; color: #222; border: 1px solid rgba(0,0,0,.15);
+    border-radius: 6px; padding: 6px 9px; box-shadow: 0 1px 4px rgba(0,0,0,.25); pointer-events: none; max-width: 260px; }
+  .pt { cursor: pointer; outline: none; }
+  .pt.on .dot { r: 7; }
   .hover-card { display: flex; flex-direction: column; gap: 1px; font: 13px/1.35 system-ui, sans-serif; }
   .hover-card b { font-size: 14px; }
   .hover-card span { color: #444; }
@@ -119,7 +124,7 @@
     <div class="card" id="profile">
       <h2>Sleeping altitude by night</h2>
       <div id="profile-chart"></div>
-      <p class="hint">The orange point on day 11 is Thorung La, crossed during the day. Dashed line: 3,000 m, above which altitude sickness becomes a real risk.</p>
+      <p class="hint">Hover or tap a point for details. The orange point on day 11 is Thorung La, crossed during the day. Dashed line: 3,000 m, above which altitude sickness becomes a real risk.</p>
     </div>
   </section>
 </main>
@@ -289,10 +294,21 @@ try {
 
 /* Altitude profile */
 (function () {
-  const pts = [{ x: 0, alt: 1400, label: "KTM" }];
+  const pts = [{ x: 0, alt: 1400, label: "KTM", name: "Kathmandu", when: "Start of day 1", extra: "Trek starts with a 6–8 h jeep ride" }];
+  let prevAlt = 1400, prevName = "Kathmandu";
+  const change = (from, to, fromName) => {
+    const d = to - from;
+    return d === 0 ? `No change from ${fromName}` : `${d > 0 ? "▲ +" : "▼ −"}${fmt(Math.abs(d))} m from ${fromName}`;
+  };
   DAYS.forEach(x => {
-    if (x.pass) pts.push({ x: x.d - 0.45, alt: x.pass.alt, label: "Thorung La", pass: true });
-    pts.push({ x: x.d, alt: x.alt, label: String(x.d) });
+    if (x.pass) pts.push({ x: x.d - 0.45, alt: x.pass.alt, label: "Thorung La", pass: true, name: x.pass.name,
+      when: `Crossed on day ${x.d} · Highest point`, delta: change(prevAlt, x.pass.alt, prevName) });
+    if (x.pass) { prevAlt = x.pass.alt; prevName = x.pass.name; }
+    const when = x.type === "rest" ? `Day ${x.d} · Rest & acclimatization` : `End of day ${x.d}`;
+    const how = x.type === "flight" ? `✈ ${x.rem.split(".")[0]}`
+      : x.type === "drive" ? `🚙 ${x.dist} · ${x.rem.split(", ")[1].split(".")[0]}` : x.type === "rest" ? x.dist : `🥾 ${x.dist} · ${x.rem.split(".")[0]}`;
+    pts.push({ x: x.d, alt: x.alt, label: String(x.d), name: x.to, when, extra: how, delta: change(prevAlt, x.alt, prevName) });
+    prevAlt = x.alt; prevName = x.to;
   });
   const W = 700, H = 300, L0 = 46, R0 = 14, T0 = 16, B0 = 34, maxA = 5800;
   const sx = v => L0 + v / 14 * (W - L0 - R0), sy = a => T0 + (1 - a / maxA) * (H - T0 - B0);
@@ -302,16 +318,44 @@ try {
   for (let a = 0; a <= 5000; a += 1000)
     g += `<line x1="${L0}" x2="${W - R0}" y1="${sy(a)}" y2="${sy(a)}" stroke="var(--line)"/><text x="${L0 - 6}" y="${sy(a) + 4}" text-anchor="end">${fmt(a)}</text>`;
   g += `<line x1="${L0}" x2="${W - R0}" y1="${sy(3000)}" y2="${sy(3000)}" stroke="var(--accent)" stroke-dasharray="4 4" opacity=".6"/>`;
-  const dots = pts.map(p => `<circle cx="${sx(p.x)}" cy="${sy(p.alt)}" r="${p.pass ? 6 : 4}" fill="${p.pass ? "var(--accent)" : "var(--prof)"}" stroke="var(--card)" stroke-width="2"><title>${p.pass ? "Thorung La" : "Day " + p.label}: ${fmt(p.alt)} m</title></circle>`).join("");
+  const dots = pts.map((p, i) => `<g class="pt" data-i="${i}" tabindex="0" role="button" aria-label="${p.name}, ${p.when}, ${fmt(p.alt)} m">
+      <circle class="dot" cx="${sx(p.x)}" cy="${sy(p.alt)}" r="${p.pass ? 6 : 4}" fill="${p.pass ? "var(--accent)" : "var(--prof)"}" stroke="var(--card)" stroke-width="2"/>
+      <circle cx="${sx(p.x)}" cy="${sy(p.alt)}" r="16" fill="transparent"/></g>`).join("");
   const xl = pts.filter(p => !p.pass).map(p => `<text x="${sx(p.x)}" y="${H - 12}" text-anchor="middle">${p.label}</text>`).join("");
   const passP = pts.find(p => p.pass);
-  document.getElementById("profile-chart").innerHTML =
+  const box = document.getElementById("profile-chart");
+  box.innerHTML =
     `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Altitude profile">${g}
       <path d="${area}" fill="var(--prof)" opacity=".12"/>
       <path d="${path}" fill="none" stroke="var(--prof)" stroke-width="2.5" stroke-linejoin="round"/>
-      ${dots}${xl}
       <text x="${sx(passP.x)}" y="${sy(passP.alt) - 10}" text-anchor="middle" style="fill:var(--accent);font-weight:700">Thorung La ${fmt(passP.alt)} m</text>
-      <text x="${W - R0}" y="${H - 1}" text-anchor="end">day</text></svg>`;
+      <text x="${W - R0}" y="${H - 1}" text-anchor="end">day</text>
+      ${xl}${dots}</svg><div class="chart-tip" hidden></div>`;
+
+  /* Hover / tap card, same content style as the map cards */
+  const tip = box.querySelector(".chart-tip");
+  let active = null;
+  function open(el) {
+    const p = pts[+el.dataset.i];
+    if (active) active.classList.remove("on");
+    active = el; el.classList.add("on");
+    tip.innerHTML = `<div class="hover-card"><b>${p.name}</b><span>${p.when}</span><span>⛰ ${fmt(p.alt)} m</span>`
+      + (p.delta ? `<span>${p.delta}</span>` : "") + (p.extra ? `<span>${p.extra}</span>` : "") + `</div>`;
+    tip.hidden = false;
+    const d = el.querySelector(".dot").getBoundingClientRect(), b = box.getBoundingClientRect();
+    const cx = d.left + d.width / 2 - b.left, cy = d.top - b.top;
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    tip.style.left = Math.max(0, Math.min(b.width - w, cx - w / 2)) + "px";
+    tip.style.top = (cy - h - 10 < 0 ? cy + d.height + 10 : cy - h - 10) + "px";
+  }
+  function close() { tip.hidden = true; if (active) active.classList.remove("on"); active = null; }
+  box.querySelectorAll(".pt").forEach(el => {
+    el.addEventListener("pointerenter", () => open(el));
+    el.addEventListener("focus", () => open(el));
+    el.addEventListener("click", e => { e.stopPropagation(); open(el); });
+  });
+  box.querySelector("svg").addEventListener("pointerleave", e => { if (e.pointerType === "mouse") close(); });
+  document.addEventListener("click", e => { if (!box.contains(e.target)) close(); });
 })();
 
 /* Offline support */
