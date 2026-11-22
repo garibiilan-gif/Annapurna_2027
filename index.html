@@ -169,10 +169,24 @@
   .fl-err { color: #b4232f; font-size: .85rem; margin: 8px 0 0; }
   @media (prefers-color-scheme: dark) { .fl-err { color: #ff8a93; } }
   @media (max-width: 560px) { .fl-line div { font-size: 0; padding: 6px 0; } .fl-line div b { font-size: .6rem; } }
-  .fl-drop { display: flex; flex-direction: column; gap: 3px; border: 2px dashed var(--line); border-radius: 10px;
-    padding: 12px 14px; margin-bottom: 12px; font-size: .9rem; color: var(--muted); }
-  .fl-drop b { color: var(--ink); }
-  .fl-drop.over { border-color: var(--accent); background: var(--snow); }
+  .fl-drop { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
+    border: 3px dashed var(--accent); border-radius: 14px; padding: 26px 16px; margin-bottom: 14px; min-height: 190px;
+    justify-content: center; background: rgba(194,65,12,.06); color: var(--muted); font-size: .95rem; outline: none; }
+  .fl-drop:focus-visible { box-shadow: 0 0 0 3px var(--accent); }
+  .fl-drop-icon { font-size: 2.6rem; line-height: 1; }
+  .fl-drop-title { color: var(--ink); font-size: 1.25rem; }
+  .fl-drop-ways { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .fl-drop-ways label.fl-btn { text-transform: none; letter-spacing: 0; font-size: .95rem; }
+  .fl-drop-or { font-size: .85rem; }
+  .fl-drop kbd { font: inherit; font-weight: 700; color: var(--ink); background: var(--card); border: 1px solid var(--line);
+    border-bottom-width: 3px; border-radius: 6px; padding: 1px 7px; }
+  .fl-drop-note { font-size: .8rem; max-width: 520px; }
+  .fl-drop-over { display: none; position: absolute; inset: 0; border-radius: 11px; align-items: center; justify-content: center;
+    background: var(--accent); color: #fff; font-size: 1.3rem; font-weight: 700; pointer-events: none; }
+  .fl-drop.over .fl-drop-over { display: flex; }
+  /* Dragging an image anywhere over the tab points at the box */
+  body.drag-img .fl-drop { box-shadow: 0 0 0 4px rgba(194,65,12,.35); }
+  .fl-ocr-img { display: block; max-width: 100%; max-height: 260px; margin: 10px 0 4px; border-radius: 8px; border: 1px solid var(--line); object-fit: contain; }
   .fl-pick { color: var(--accent); font-weight: 600; text-decoration: underline; cursor: pointer; }
   .fl-ocr { background: var(--snow); border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; }
   .fl-ocr-head { display: flex; gap: 10px 14px; flex-wrap: wrap; }
@@ -192,7 +206,15 @@
   .fl-opt-head .fl-choose { border-color: var(--accent); color: var(--accent); font-weight: 600; }
   .fl-chosen { font-size: .8rem; font-weight: 700; color: #2f7d5b; }
   .fl-opt.chosen { background: rgba(47,125,91,.08); }
-  .fl-mine { margin-bottom: 14px; }
+  .fl-mine { margin-bottom: 14px; position: relative; }
+  .cal-day { cursor: pointer; outline: none; transition: transform .1s; }
+  .cal-day.on, .cal-day:focus-visible { box-shadow: 0 0 0 2px var(--accent); transform: translateY(-2px); }
+  .cal-tip { position: absolute; z-index: 20; width: min(340px, calc(100% - 16px)); background: var(--card); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; box-shadow: 0 6px 22px rgba(0,0,0,.25);
+    display: flex; flex-direction: column; gap: 5px; font-size: .86rem; line-height: 1.4; }
+  .cal-tip[hidden] { display: none; }
+  .cal-tip-head { font-size: .9rem; color: var(--accent); }
+  .cal-tip .fl-verdict { margin: 0 2px; }
   #fl-tools[hidden] { display: none; }
   .cal-wrap { overflow-x: auto; margin: 12px -4px 0; padding: 0 4px 6px; }
   .cal-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(50px, 1fr); gap: 3px; }
@@ -324,12 +346,17 @@
 
     <div class="card fl-card">
       <h2>Check flights against the trek</h2>
-      <p class="hint" style="margin:0 0 10px">Found a flight you like? Paste a screenshot of the results, or enter when it lands in Kathmandu and when the flight home leaves Kathmandu, as shown on the booking site.</p>
-      <div id="fl-drop" class="fl-drop" title="Paste (Ctrl+V or ⌘V), drop or choose a screenshot of flight results. The text is read on this device; the image isn't uploaded anywhere.">
-        <b>📋 Paste a screenshot of flights</b>
-        <span>Press Ctrl+V (⌘V on Mac) on this tab, drop an image here, or
-          <label class="fl-pick" title="Opens a file picker to choose a screenshot, or your photo library on a phone.">choose a screenshot<input type="file" id="fl-file" accept="image/*" hidden></label>.
-          The times are read on this device and filled in below for you to check.</span>
+      <p class="hint" style="margin:0 0 10px">Found flights you like? Give the app a screenshot of the results, or type the times into the form below the box, as shown on the booking site.</p>
+      <div id="fl-drop" class="fl-drop" tabindex="0" title="Paste (Ctrl+V or ⌘V), drag or choose a screenshot of flight results. The text is read on this device; the image isn't uploaded anywhere.">
+        <div class="fl-drop-icon" aria-hidden="true">🖼️</div>
+        <b class="fl-drop-title">Drag a screenshot of flights here</b>
+        <div class="fl-drop-ways">
+          <span><kbd>Ctrl</kbd>+<kbd>V</kbd> to paste <small>(⌘V on Mac)</small></span>
+          <span class="fl-drop-or">or</span>
+          <label class="fl-btn" title="Opens a file picker to choose a screenshot, or your photo library on a phone.">Choose a screenshot<input type="file" id="fl-file" accept="image/*" hidden></label>
+        </div>
+        <small class="fl-drop-note">The times are read on this device and filled in below for you to check. The image isn't uploaded anywhere.</small>
+        <div class="fl-drop-over" aria-hidden="true">Drop the screenshot to read it</div>
       </div>
       <div id="fl-ocr" class="fl-ocr" hidden></div>
       <form id="fl-form" class="fl-grid" novalidate>
@@ -1032,6 +1059,25 @@ const flKey = o => `${o.arr}|${o.dep}`;
 /* A line for the home-airport end of a trip (take-off or landing, home time), when it was entered */
 const flEnd = (s, what) => { const t = parseLocal(s); return t ? `<div class="fl-leg hint">${what} ${fmtShort(t)}, ${fmtTime(t)} (home time)</div>` : ""; };
 let flEditing = false;   // "Change my flights" open; not saved, so a reload shows the calendar again
+let CAL_INFO = {};       // detail card HTML for each day on the bar, by trek day number
+/* Airports: names from the airport list on this tab, plus the ones in Nepal used by the trek */
+const AIRPORTS = Object.assign(
+  Object.fromEntries([...document.querySelectorAll("#fl-airports option")].map(op => [op.value, op.textContent])),
+  { KTM: "Tribhuvan International, Kathmandu", JMO: "Jomsom Airport", PHH: "Pokhara International" });
+const airportName = c => AIRPORTS[c] ? `${AIRPORTS[c]} (${c})` : c === "Home" ? "your home airport" : c;
+/* The trek's two mountain flights: Jomsom → Pokhara (day 13), Pokhara → Kathmandu (day 14) */
+const PLACE_AP = { Jomsom: "JMO", Pokhara: "PHH", Kathmandu: "KTM" };
+const trekAirfields = x => [PLACE_AP[x.from.split(" (")[0]], PLACE_AP[x.to]];
+/* Detail lines for a trek day, from the day-by-day plan */
+function trekInfo(x) {
+  const fa = trekAirfields(x), lines = [`<b>${x.from.split(" (")[0]} → ${x.to}</b>`];
+  if (x.type === "flight") lines.push(`✈ Takes off from ${airportName(fa[0])} for ${airportName(fa[1])}`);
+  else if (x.type === "drive") lines.push(`🚙 Private jeep from Kathmandu · ${x.dist}`);
+  else lines.push(`🥾 ${x.dist}`);
+  lines.push(`⛰ Sleep at ${fmt(x.alt)} m${x.pass ? ` · crosses ${x.pass.name} at ${fmt(x.pass.alt)} m` : ""}`);
+  lines.push(x.desc, `<span class="hint">${x.rem}</span>`);
+  return lines;
+}
 const SHORT = { "Thorung Phedi": "Phedi", "Muktinath": "Muktinath", "Yak Kharka": "Yak Kharka" };
 function renderMine() {
   const card = $f("fl-mine"), tools = $f("fl-tools");
@@ -1042,37 +1088,49 @@ function renderMine() {
   const ja = judgeArrival(a), jd = judgeDeparture(d), all = worst(ja[0], jd[0]);
   const na = dayNum(a), nd = dayNum(d);
   const off = parseLocal(o.takeoff), home = parseLocal(o.home), ap = o.from || "Home";
-  const noff = off ? dayNum(off) : na, nh = home ? dayNum(home) : nd;
-  /* Flight events by day: a day can hold two (take off and land, or leave and land back) */
+  const noff = off ? dayNum(off) : na, nh = home ? dayNum(home) : nd, spareDays = nd - 15;
+  const apName = airportName(ap), stopsTxt = o.stops ? plural(o.stops, "stop") : "non-stop";
+  /* Flight events by day: a day can hold two (take off and land, or leave and land back).
+     Each has a short line for the bar and a full line for the day's detail card. */
   const ev = {};
-  const put = (n, cls, html) => (ev[n] = ev[n] || { cls, lines: [] }).lines.push(html);
-  if (off) put(noff, ja[0], `✈ ${ap} ${fmtTime(off)}`);
-  put(na, ja[0], `🛬 KTM ${fmtTime(a)}`);
-  put(nd, jd[0], `✈ KTM ${fmtTime(d)}`);
-  if (home) put(nh, jd[0], `🏠 ${ap} ${fmtTime(home)}`);
-  const cells = [];
+  const put = (n, cls, short, long) => { const e = ev[n] = ev[n] || { cls, lines: [], info: [] }; e.lines.push(short); e.info.push(long); };
+  if (off) put(noff, ja[0], `✈ ${ap} ${fmtTime(off)}`, `✈ <b>Takes off</b> from ${apName} at ${fmtTime(off)} (home time), ${stopsTxt} to Kathmandu`);
+  put(na, ja[0], `🛬 KTM ${fmtTime(a)}`, `🛬 <b>Lands</b> at ${airportName("KTM")} at ${fmtTime(a)} (Nepal time)${off ? "" : `, from ${apName}`}. ${pill(ja[0])} ${ja[1]}`);
+  put(nd, jd[0], `✈ KTM ${fmtTime(d)}`, `✈ <b>Takes off</b> from ${airportName("KTM")} at ${fmtTime(d)} (Nepal time) for ${apName}. ${pill(jd[0])} ${jd[1]}`);
+  if (home) put(nh, jd[0], `🏠 ${ap} ${fmtTime(home)}`, `🏠 <b>Lands back</b> at ${apName} at ${fmtTime(home)} (home time)`);
+  const cells = [], info = {};
   let month = -1;
   for (let n = Math.min(noff, na, 0); n <= Math.max(nd, nh, 15); n++) {
     const dt = dayDate(n), x = DAYS[n - 1];
-    let cls, top, label;
-    if (ev[n]) { cls = "c-fly " + ev[n].cls; top = n >= 1 && n <= 14 ? `Day ${n}` : n <= na ? "Fly out" : "Fly home"; label = ev[n].lines.map(l => `<span>${l}</span>`).join(""); }
+    let cls, top, label, more = [];
+    if (n >= 1 && n <= 14) more = trekInfo(x);
+    if (ev[n]) { cls = "c-fly " + ev[n].cls; top = n >= 1 && n <= 14 ? `Day ${n}` : n <= na ? "Fly out" : "Fly home";
+      label = ev[n].lines.map(l => `<span>${l}</span>`).join(""); more = ev[n].info.concat(more); }
     else if (n < noff || n > nh) { cls = "c-off"; top = ""; label = ""; }
-    else if (n < na) { cls = "c-air"; top = "In the air"; label = ""; }
-    else if (n > nd) { cls = "c-air"; top = "In the air"; label = ""; }
-    else if (n < 1) { cls = "c-ktm"; top = "KTM"; label = n === 0 ? "Night before" : "Kathmandu"; }
-    else if (n > 14) { cls = "c-spare"; top = "Spare"; label = "Kathmandu"; }
+    else if (n < na || n > nd) { cls = "c-air"; top = "In the air"; label = "";
+      more = [n < na ? `Overnight flight from ${apName} to Kathmandu, landing ${fmtShort(a)} at ${fmtTime(a)}.` : `Overnight flight home, landing at ${apName}${home ? ` ${fmtShort(home)} at ${fmtTime(home)}` : ""}.`]; }
+    else if (n < 1) { cls = "c-ktm"; top = "KTM"; label = n === 0 ? "Night before" : "Kathmandu";
+      more = [n === 0 ? "Last night in Kathmandu: the private jeep to Besisahar leaves early on day 1 (6–8 h drive). Pack and sleep early."
+        : `Free day in Kathmandu (${plural(1 - n, "night")} before the jeep): rest from the flight, buy or rent gear, collect permits.`]; }
+    else if (n > 14) { cls = "c-spare"; top = "Spare"; label = "Kathmandu";
+      more = [`Spare day in Kathmandu (${n - 14} of ${spareDays}). It covers a weather-delayed Jomsom or Pokhara flight; if all went to plan, it's free for sightseeing.`]; }
     else { cls = "c-trek" + (x.type === "flight" ? " c-air" : x.pass ? " c-pass" : ""); top = `Day ${n}`;
-      label = x.type === "flight" ? `✈ ${x.to}` : x.type === "drive" ? `🚙 ${x.to}` : x.pass ? `⛰ ${x.pass.name.replace(/ \(.*/, "")}` : SHORT[x.to] || x.to; }
+      const fa = trekAirfields(x);
+      label = x.type === "flight" ? `✈ ${fa[0]} → ${fa[1]}` : x.type === "drive" ? `🚙 ${x.to}` : x.pass ? `⛰ ${x.pass.name.replace(/ \(.*/, "")}` : SHORT[x.to] || x.to; }
     const mo = dt.getMonth() !== month ? dt.toLocaleDateString("en-GB", { month: "short" }) : "";
     month = dt.getMonth();
-    cells.push(`<div class="cal-day ${cls}" title="${fmtDate(dt)} · ${dayLabel(n)}${top ? " · " + top : ""} ${label.replace(/<\/span><span>/g, " · ").replace(/<\/?span>/g, "")}">
+    info[n] = `<b class="cal-tip-head">${fmtDate(dt)} · ${n >= 1 && n <= 14 ? `Trek day ${n}` : dayLabel(n)}</b>` + more.map(m => `<span>${m}</span>`).join("");
+    cells.push(`<div class="cal-day ${cls}" data-n="${n}" tabindex="0" role="button" aria-label="${fmtDate(dt)}, ${top} ${label.replace(/<[^>]+>/g, " ")}. Show details">
       <span class="cal-date">${mo ? `<em>${mo}</em>` : ""}${dt.getDate()} <small>${dt.toLocaleDateString("en-GB", { weekday: "short" })}</small></span>
       <b>${top}</b><span class="cal-lbl">${label}</span></div>`);
   }
+  CAL_INFO = info;
   const nightsBefore = 1 - na, spare = nd - 14, away = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - new Date(a.getFullYear(), a.getMonth(), a.getDate())) / 864e5);
   card.innerHTML = `<div class="fl-opt-head"><h2 style="margin:0">My flights ${pill(all)}</h2>
       <button type="button" class="fl-btn ghost" id="fl-change" aria-expanded="${flEditing}" title="${flEditing ? "Folds the flight search and the list of options away again." : "Opens the flight search, the screenshot reader and your list of options, to pick other flights."}">${flEditing ? "Hide flight search" : "Change my flights"}</button></div>
     <div class="cal-wrap"><div class="cal-row">${cells.join("")}</div></div>
+    <p class="hint" style="margin:4px 0 0">Hover over a day, or tap it, for the details.</p>
+    <div class="cal-tip" id="cal-tip" role="tooltip" hidden></div>
     <div class="fl-mine-sum">
       <div>${pill(ja[0])} <b>Outbound${o.from ? `: ${o.from} → KTM` : ""}</b>
         ${off ? `<br>✈ Takes off ${fmtDate(off)}, ${fmtTime(off)} <span class="hint">(home time)</span>` : ""}
@@ -1088,6 +1146,36 @@ function renderMine() {
   card.hidden = false;
   tools.hidden = !flEditing;
 }
+/* Day detail card: follows hover on a mouse; on touch, a tap opens it and a tap elsewhere closes it */
+let calPinned = null;
+function calShow(cell) {
+  const tip = $f("cal-tip"), card = $f("fl-mine");
+  if (!tip || !cell) return;
+  tip.innerHTML = CAL_INFO[cell.dataset.n] || "";
+  tip.hidden = false;
+  card.querySelectorAll(".cal-day.on").forEach(c => c.classList.remove("on"));
+  cell.classList.add("on");
+  const cr = card.getBoundingClientRect(), r = cell.getBoundingClientRect(), w = tip.offsetWidth;
+  const left = Math.max(8, Math.min(r.left - cr.left + r.width / 2 - w / 2, cr.width - w - 8));
+  tip.style.left = left + "px";
+  tip.style.top = (r.bottom - cr.top + 6) + "px";
+}
+function calHide() {
+  const tip = $f("cal-tip");
+  if (tip) tip.hidden = true;
+  $f("fl-mine").querySelectorAll(".cal-day.on").forEach(c => c.classList.remove("on"));
+  calPinned = null;
+}
+$f("fl-mine").addEventListener("mouseover", e => { const c = e.target.closest(".cal-day"); if (c && !calPinned) calShow(c); });
+$f("fl-mine").addEventListener("mouseleave", () => { if (!calPinned) calHide(); });
+$f("fl-mine").addEventListener("mouseout", e => { if (!calPinned && e.target.closest(".cal-row") && !e.relatedTarget?.closest(".cal-row")) calHide(); });
+$f("fl-mine").addEventListener("focusin", e => { const c = e.target.closest(".cal-day"); if (c) calShow(c); });
+$f("fl-mine").addEventListener("keydown", e => { if (e.key === "Escape") calHide(); });
+document.addEventListener("click", e => {
+  const c = e.target.closest("#fl-mine .cal-day");
+  if (c) { if (calPinned === c) return calHide(); calShow(c); calPinned = c; return; }
+  if (calPinned && !e.target.closest("#cal-tip")) calHide();
+});
 $f("fl-mine").addEventListener("click", e => {
   if (e.target.id !== "fl-change") return;
   flEditing = !flEditing; renderMine();
@@ -1251,7 +1339,7 @@ function renderOcr() {
   const box = $f("fl-ocr");
   const c = ocrCandidates();
   const legTxt = l => `${l.dep} → ${l.arr}${l.plus ? "+" + l.plus : ""}`;
-  box.innerHTML = `<div class="fl-ocr-head">
+  box.innerHTML = (OCR.img ? `<img class="fl-ocr-img" src="${OCR.img}" alt="Your screenshot, to check the rows below against">` : "") + `<div class="fl-ocr-head">
       <label>This screenshot shows
         <select id="ocr-mode" title="How the flights in the screenshot are laid out. Round trips pair each outbound flight with the return flight under it.">
           <option value="pairs">Round trips (out + back)</option><option value="out">Outbound flights only</option><option value="ret">Return flights only</option>
@@ -1312,7 +1400,10 @@ async function readScreenshot(blob) {
   if (!blob || !/^image\//.test(blob.type)) return;
   const box = $f("fl-ocr");
   box.hidden = false;
-  box.innerHTML = `<p class="hint" id="ocr-status">Loading the text reader…</p>`;
+  if (OCR.img) URL.revokeObjectURL(OCR.img);
+  OCR.img = URL.createObjectURL(blob);   // shown next to the rows, to check them against
+  box.innerHTML = `<p class="hint" id="ocr-status">Loading the text reader…</p><img class="fl-ocr-img" src="${OCR.img}" alt="Your screenshot">`;
+  box.scrollIntoView({ behavior: "smooth", block: "nearest" });
   const status = t => { const s = $f("ocr-status"); if (s) s.textContent = t; };
   try {
     const T = await loadTess();
@@ -1350,9 +1441,22 @@ async function readScreenshot(blob) {
 
 $f("fl-file").addEventListener("change", e => { readScreenshot(e.target.files[0]); e.target.value = ""; });
 const drop = $f("fl-drop");
-["dragenter", "dragover"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add("over"); }));
-["dragleave", "drop"].forEach(t => drop.addEventListener(t, () => drop.classList.remove("over")));
-drop.addEventListener("drop", e => { e.preventDefault(); readScreenshot([...e.dataTransfer.files].find(f => /^image\//.test(f.type))); });
+const hasFiles = e => [...(e.dataTransfer?.types || [])].includes("Files");
+["dragenter", "dragover"].forEach(t => drop.addEventListener(t, e => { if (!hasFiles(e)) return; e.preventDefault(); drop.classList.add("over"); }));
+drop.addEventListener("dragleave", e => { if (!drop.contains(e.relatedTarget)) drop.classList.remove("over"); });
+/* An image dropped anywhere on the Flights tab is read too, instead of the browser opening it */
+let dragDepth = 0;
+document.addEventListener("dragenter", e => { if (hasFiles(e) && !$f("tab-flights").hidden) { dragDepth++; document.body.classList.add("drag-img"); } });
+document.addEventListener("dragleave", () => { if (--dragDepth <= 0) { dragDepth = 0; document.body.classList.remove("drag-img"); } });
+document.addEventListener("dragover", e => { if (hasFiles(e) && !$f("tab-flights").hidden) e.preventDefault(); });
+document.addEventListener("drop", e => {
+  dragDepth = 0; document.body.classList.remove("drag-img"); drop.classList.remove("over");
+  if ($f("tab-flights").hidden || !hasFiles(e)) return;
+  e.preventDefault();
+  readScreenshot([...e.dataTransfer.files].find(f => /^image\//.test(f.type)));
+});
+/* Enter or Space on the focused box opens the file picker */
+drop.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target === drop) { e.preventDefault(); $f("fl-file").click(); } });
 /* Ctrl+V / ⌘V anywhere on the Flights tab takes an image from the clipboard */
 document.addEventListener("paste", e => {
   if ($f("tab-flights").hidden) return;
