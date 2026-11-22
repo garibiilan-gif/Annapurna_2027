@@ -188,6 +188,39 @@
   .fl-note { margin: 10px 0 0; padding: 8px 11px; border-radius: 8px; font-size: .9rem; font-weight: 600;
     background: rgba(47,125,91,.14); color: #2f7d5b; }
   @media (prefers-color-scheme: dark) { .fl-note { color: #5cc092; } }
+  .fl-opt-btns { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .fl-opt-head .fl-choose { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .fl-chosen { font-size: .8rem; font-weight: 700; color: #2f7d5b; }
+  .fl-opt.chosen { background: rgba(47,125,91,.08); }
+  .fl-mine { margin-bottom: 14px; }
+  #fl-tools[hidden] { display: none; }
+  .cal-wrap { overflow-x: auto; margin: 12px -4px 0; padding: 0 4px 6px; }
+  .cal-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(50px, 1fr); gap: 3px; }
+  .cal-day { border-radius: 8px; padding: 6px 5px 7px; min-height: 86px; display: flex; flex-direction: column; gap: 2px;
+    font-size: .72rem; line-height: 1.2; background: var(--snow); color: var(--ink); overflow: hidden; }
+  .cal-date { font-weight: 700; font-size: .82rem; }
+  .cal-date em { display: block; font-style: normal; font-size: .66rem; text-transform: uppercase; letter-spacing: .05em; opacity: .8; }
+  .cal-date small { font-weight: 500; opacity: .75; }
+  .cal-day b { font-size: .74rem; }
+  .cal-lbl { overflow-wrap: anywhere; }
+  .c-trek { background: #1d3b53; color: #fff; }
+  .c-trek.c-pass { background: #c2410c; } .c-trek.c-air { background: #6b5bb5; }
+  .c-ktm, .c-spare { background: var(--snow); border: 1px dashed var(--muted); }
+  .c-fly { color: #fff; } .c-fly.safe { background: #2f7d5b; } .c-fly.tight { background: #b7790f; } .c-fly.bad { background: #b4232f; }
+  .c-off { opacity: .35; }
+  .cal-day.c-air:not(.c-trek) { background: var(--snow); border: 1px dashed #6b5bb5; }
+  .c-fly .cal-lbl { font-weight: 600; } .c-fly .cal-lbl span { display: block; }
+  .cal-lbl { overflow-wrap: normal; word-break: normal; hyphens: auto; }
+  @media (max-width: 700px) {   /* phones: one line per day, read top to bottom */
+    .cal-wrap { overflow: visible; margin: 12px 0 0; padding: 0; }
+    .cal-row { grid-auto-flow: row; grid-template-columns: 1fr; gap: 3px; }
+    .cal-day { min-height: 0; flex-direction: row; align-items: baseline; gap: 10px; padding: 7px 10px; font-size: .85rem; }
+    .cal-date { flex: 0 0 74px; } .cal-date em { display: inline; margin-right: 4px; }
+    .cal-day b { flex: 0 0 72px; font-size: .85rem; }
+    .c-fly .cal-lbl { display: flex; gap: 2px 14px; flex-wrap: wrap; }
+  }
+  @media (prefers-color-scheme: dark) { .c-trek { background: #3b5f7d; } }
+  .fl-mine-sum { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px 14px; margin-top: 10px; font-size: .9rem; }
   .fl-cand-btns { display: flex; gap: 6px; align-items: flex-end; flex-wrap: wrap; }
   .fl-rm { font: inherit; font-size: .82rem; border: 1px solid var(--line); background: none; color: var(--muted);
     border-radius: 8px; padding: 7px 10px; cursor: pointer; }
@@ -248,6 +281,8 @@
   </section>
 
   <section id="tab-flights" hidden>
+    <div class="card fl-card fl-mine" id="fl-mine" hidden></div>
+    <div id="fl-tools">
     <div class="card fl-card">
       <h2>Find flights to Kathmandu (KTM)</h2>
       <div class="fl-grid">
@@ -298,11 +333,17 @@
       </div>
       <div id="fl-ocr" class="fl-ocr" hidden></div>
       <form id="fl-form" class="fl-grid" novalidate>
+        <label>Takes off from home
+          <input id="fl-in-off" type="datetime-local" title="Optional: date and time the outbound flight takes off from your airport, in home time. Shown on the trip calendar.">
+        </label>
         <label>Lands in Kathmandu
           <input id="fl-in-arr" type="datetime-local" title="Date and time the outbound flight lands in Kathmandu, in Nepal time (as the booking site shows it).">
         </label>
         <label>Leaves Kathmandu
           <input id="fl-in-dep" type="datetime-local" title="Date and time the flight home takes off from Kathmandu, in Nepal time.">
+        </label>
+        <label>Lands back home
+          <input id="fl-in-home" type="datetime-local" title="Optional: date and time the flight home lands at your airport, in home time. Shown on the trip calendar.">
         </label>
         <label>Stops on the way
           <input id="fl-in-stops" type="number" min="0" max="4" step="1" value="1" inputmode="numeric" title="Number of connections on the outbound flight. Two or more on a tight arrival make it unsafe: one missed connection means missing the jeep.">
@@ -318,6 +359,7 @@
       <p class="fl-note" id="fl-note" role="status" hidden></p>
       <h3 class="fl-yours" id="fl-yours">Your flights</h3>
       <div id="fl-results"></div>
+    </div>
     </div>
   </section>
 </main>
@@ -958,6 +1000,7 @@ function flResults() {
   const box = $f("fl-results");
   $f("fl-yours").innerHTML = `Your flights${FL.options.length ? ` (${FL.options.length})` : ""}`
     + `<span class="hint"> · saved in this browser, safest first</span>`;
+  renderMine();
   if (!FL.options.length) { box.innerHTML = `<p class="hint">No flights checked yet. Flights you add from a screenshot or the form above appear here.</p>`; return; }
   if (!START) { box.innerHTML = `<p class="fl-err">Pick the trek start date to check your ${plural(FL.options.length, "saved flight")}.</p>`; return; }
   const rows = FL.options.map((o, i) => {
@@ -970,14 +1013,86 @@ function flResults() {
     else if (o.stops >= 2) notes.push(`${o.stops} stops: allow for a delayed bag.`);
     return { o, i, a, d, ja, jd, all, notes };
   }).filter(Boolean).sort((x, y) => RANK[x.all] - RANK[y.all] || (x.o.price ?? Infinity) - (y.o.price ?? Infinity));
-  box.innerHTML = rows.map((r, k) => `<div class="fl-opt ${r.all}">
+  box.innerHTML = rows.map((r, k) => `<div class="fl-opt ${r.all}${flKey(r.o) === FL.chosen ? " chosen" : ""}">
       <div class="fl-opt-head"><span>${pill(r.all)} <b>Option ${k + 1}</b>${r.o.price != null ? ` · ${fmt(r.o.price)}` : ""} · ${plural(r.o.stops, "stop")}${k === 0 && rows.length > 1 && r.all !== "bad" ? " · best match" : ""}</span>
-        <button type="button" data-del="${r.i}" title="Removes this flight from the list. It isn't saved anywhere else.">Remove</button></div>
-      <div class="fl-leg">${pill(r.ja[0])}<b>Lands</b> ${fmtShort(r.a)}, ${fmtTime(r.a)} (${dayLabel(dayNum(r.a))}): ${r.ja[1]}</div>
-      <div class="fl-leg">${pill(r.jd[0])}<b>Leaves</b> ${fmtShort(r.d)}, ${fmtTime(r.d)} (${dayLabel(dayNum(r.d))}): ${r.jd[1]}</div>
+        <span class="fl-opt-btns">${flKey(r.o) === FL.chosen
+          ? `<span class="fl-chosen" title="These are your flights; they're shown on the trip calendar at the top of this tab.">✓ My flights</span>`
+          : `<button type="button" class="fl-choose" data-choose="${r.i}" title="Makes these your flights: the tab then shows them on the trip calendar and folds the search tools away under Change my flights.">Choose these flights</button>`}
+        <button type="button" data-del="${r.i}" title="Removes this flight from the list. It isn't saved anywhere else.">Remove</button></span></div>
+      ${flEnd(r.o.takeoff, `✈ <b>Takes off</b> from ${r.o.from || "home"}`)}
+      <div class="fl-leg">${pill(r.ja[0])}<b>Lands</b> in Kathmandu ${fmtShort(r.a)}, ${fmtTime(r.a)} (${dayLabel(dayNum(r.a))}): ${r.ja[1]}</div>
+      <div class="fl-leg">${pill(r.jd[0])}<b>Leaves</b> Kathmandu ${fmtShort(r.d)}, ${fmtTime(r.d)} (${dayLabel(dayNum(r.d))}): ${r.jd[1]}</div>
+      ${flEnd(r.o.home, `🏠 <b>Lands back</b> in ${r.o.from || "home"}`)}
       ${r.notes.map(n => `<div class="fl-leg hint">⚠ ${n}</div>`).join("")}
     </div>`).join("");
 }
+
+/* ---------- My flights: the chosen pair on one calendar row, with the tools folded away ---------- */
+const flKey = o => `${o.arr}|${o.dep}`;
+/* A line for the home-airport end of a trip (take-off or landing, home time), when it was entered */
+const flEnd = (s, what) => { const t = parseLocal(s); return t ? `<div class="fl-leg hint">${what} ${fmtShort(t)}, ${fmtTime(t)} (home time)</div>` : ""; };
+let flEditing = false;   // "Change my flights" open; not saved, so a reload shows the calendar again
+const SHORT = { "Thorung Phedi": "Phedi", "Muktinath": "Muktinath", "Yak Kharka": "Yak Kharka" };
+function renderMine() {
+  const card = $f("fl-mine"), tools = $f("fl-tools");
+  const o = FL.options.find(x => flKey(x) === FL.chosen);
+  if (FL.chosen && !o) { FL.chosen = null; flSave(); }
+  if (!o || !START) { card.hidden = true; tools.hidden = false; return; }
+  const a = parseLocal(o.arr), d = parseLocal(o.dep);
+  const ja = judgeArrival(a), jd = judgeDeparture(d), all = worst(ja[0], jd[0]);
+  const na = dayNum(a), nd = dayNum(d);
+  const off = parseLocal(o.takeoff), home = parseLocal(o.home), ap = o.from || "Home";
+  const noff = off ? dayNum(off) : na, nh = home ? dayNum(home) : nd;
+  /* Flight events by day: a day can hold two (take off and land, or leave and land back) */
+  const ev = {};
+  const put = (n, cls, html) => (ev[n] = ev[n] || { cls, lines: [] }).lines.push(html);
+  if (off) put(noff, ja[0], `✈ ${ap} ${fmtTime(off)}`);
+  put(na, ja[0], `🛬 KTM ${fmtTime(a)}`);
+  put(nd, jd[0], `✈ KTM ${fmtTime(d)}`);
+  if (home) put(nh, jd[0], `🏠 ${ap} ${fmtTime(home)}`);
+  const cells = [];
+  let month = -1;
+  for (let n = Math.min(noff, na, 0); n <= Math.max(nd, nh, 15); n++) {
+    const dt = dayDate(n), x = DAYS[n - 1];
+    let cls, top, label;
+    if (ev[n]) { cls = "c-fly " + ev[n].cls; top = n >= 1 && n <= 14 ? `Day ${n}` : n <= na ? "Fly out" : "Fly home"; label = ev[n].lines.map(l => `<span>${l}</span>`).join(""); }
+    else if (n < noff || n > nh) { cls = "c-off"; top = ""; label = ""; }
+    else if (n < na) { cls = "c-air"; top = "In the air"; label = ""; }
+    else if (n > nd) { cls = "c-air"; top = "In the air"; label = ""; }
+    else if (n < 1) { cls = "c-ktm"; top = "KTM"; label = n === 0 ? "Night before" : "Kathmandu"; }
+    else if (n > 14) { cls = "c-spare"; top = "Spare"; label = "Kathmandu"; }
+    else { cls = "c-trek" + (x.type === "flight" ? " c-air" : x.pass ? " c-pass" : ""); top = `Day ${n}`;
+      label = x.type === "flight" ? `✈ ${x.to}` : x.type === "drive" ? `🚙 ${x.to}` : x.pass ? `⛰ ${x.pass.name.replace(/ \(.*/, "")}` : SHORT[x.to] || x.to; }
+    const mo = dt.getMonth() !== month ? dt.toLocaleDateString("en-GB", { month: "short" }) : "";
+    month = dt.getMonth();
+    cells.push(`<div class="cal-day ${cls}" title="${fmtDate(dt)} · ${dayLabel(n)}${top ? " · " + top : ""} ${label.replace(/<\/span><span>/g, " · ").replace(/<\/?span>/g, "")}">
+      <span class="cal-date">${mo ? `<em>${mo}</em>` : ""}${dt.getDate()} <small>${dt.toLocaleDateString("en-GB", { weekday: "short" })}</small></span>
+      <b>${top}</b><span class="cal-lbl">${label}</span></div>`);
+  }
+  const nightsBefore = 1 - na, spare = nd - 14, away = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - new Date(a.getFullYear(), a.getMonth(), a.getDate())) / 864e5);
+  card.innerHTML = `<div class="fl-opt-head"><h2 style="margin:0">My flights ${pill(all)}</h2>
+      <button type="button" class="fl-btn ghost" id="fl-change" aria-expanded="${flEditing}" title="${flEditing ? "Folds the flight search and the list of options away again." : "Opens the flight search, the screenshot reader and your list of options, to pick other flights."}">${flEditing ? "Hide flight search" : "Change my flights"}</button></div>
+    <div class="cal-wrap"><div class="cal-row">${cells.join("")}</div></div>
+    <div class="fl-mine-sum">
+      <div>${pill(ja[0])} <b>Outbound${o.from ? `: ${o.from} → KTM` : ""}</b>
+        ${off ? `<br>✈ Takes off ${fmtDate(off)}, ${fmtTime(off)} <span class="hint">(home time)</span>` : ""}
+        <br>🛬 Lands in Kathmandu ${fmtDate(a)}, ${fmtTime(a)}
+        <br><span class="hint">${plural(nightsBefore, "night")} in Kathmandu before the jeep on ${fmtShort(START)}</span></div>
+      <div>${pill(jd[0])} <b>Return${o.from ? `: KTM → ${o.from}` : ""}</b>
+        <br>✈ Takes off from Kathmandu ${fmtDate(d)}, ${fmtTime(d)}
+        ${home ? `<br>🏠 Lands back ${fmtDate(home)}, ${fmtTime(home)} <span class="hint">(home time)</span>` : ""}
+        <br><span class="hint">${plural(spare, "spare day")} after the planned return from Pokhara on ${fmtShort(dayDate(14))}</span></div>
+      <div><b>${plural(away + 1, "day")}</b> in Nepal${o.price != null ? ` · <b>${fmt(o.price)}</b> total` : ""} · ${plural(o.stops, "stop")} on the way</div>
+    </div>
+    ${off && home ? "" : `<p class="hint">Add the take-off from home and the landing back home under <b>Change my flights</b> (remove this option and add it again with those times) to see the whole journey on the calendar.</p>`}`;
+  card.hidden = false;
+  tools.hidden = !flEditing;
+}
+$f("fl-mine").addEventListener("click", e => {
+  if (e.target.id !== "fl-change") return;
+  flEditing = !flEditing; renderMine();
+  if (flEditing) $f("fl-tools").scrollIntoView({ behavior: "smooth", block: "start" });
+});
 
 function renderFlights() {
   $f("fl-from").value = FL.from || "";
@@ -996,7 +1111,7 @@ $f("fl-cabin").addEventListener("change", e => flSet("cabin", e.target.value));
 $f("fl-out").addEventListener("change", e => flSet("out", e.target.value));
 $f("fl-ret").addEventListener("change", e => flSet("ret", e.target.value));
 /* Adds one flight pair to the list; returns an error message, or "" when it was added */
-function flAdd(arr, dep, stopsV, priceV) {
+function flAdd(arr, dep, stopsV, priceV, extra = {}) {
   const a = parseLocal(arr), d = parseLocal(dep);
   const msg = !START ? "Pick the trek start date (day 1) at the top first."
     : !a || !d ? "Enter both the landing time and the departure time."
@@ -1004,14 +1119,17 @@ function flAdd(arr, dep, stopsV, priceV) {
   if (msg) return msg;
   const price = priceV === "" || priceV == null || isNaN(+priceV) ? null : Math.max(0, Math.round(+priceV));
   const stops = Math.min(4, Math.max(0, Math.round(+stopsV) || 0));
-  FL.options.push({ arr, dep, stops, price });
+  const from = /^[A-Z]{3}$/.test(FL.from || "") ? FL.from : null;   // the home airport searched from
+  FL.options.push({ arr, dep, stops, price, from,
+    takeoff: parseLocal(extra.takeoff) ? extra.takeoff : null, home: parseLocal(extra.home) ? extra.home : null });
   flSave(); flResults();
   return "";
 }
 $f("fl-form").addEventListener("submit", e => {
   e.preventDefault();
   const err = $f("fl-form-err");
-  const msg = flAdd($f("fl-in-arr").value, $f("fl-in-dep").value, $f("fl-in-stops").value, $f("fl-in-price").value);
+  const msg = flAdd($f("fl-in-arr").value, $f("fl-in-dep").value, $f("fl-in-stops").value, $f("fl-in-price").value,
+    { takeoff: $f("fl-in-off").value, home: $f("fl-in-home").value });
   err.hidden = !msg; err.textContent = msg;
   if (!msg) { $f("fl-in-price").value = ""; flAdded(1); }
 });
@@ -1114,11 +1232,14 @@ function ocrCandidates() {
   /* Landing at an earlier clock time than take-off means the next day, even when OCR missed the small "+1" */
   const landing = leg => OCR.out ? `${addDays(OCR.out, Math.max(leg.plus, leg.arr < leg.dep ? 1 : 0))}T${leg.arr}` : "";
   const leaving = leg => OCR.ret ? `${OCR.ret}T${leg.dep}` : "";
+  const takeoff = leg => OCR.out ? `${OCR.out}T${leg.dep}` : "";
+  const homeLand = leg => OCR.ret ? `${addDays(OCR.ret, Math.max(leg.plus, leg.arr < leg.dep ? 1 : 0))}T${leg.arr}` : "";
   if (OCR.mode === "pairs") for (let i = 0; i < L.length; i += 2)
-    c.push({ arr: landing(L[i]), dep: L[i + 1] ? leaving(L[i + 1]) : fallDep, stops: L[i].stops ?? 1, src: [L[i], L[i + 1]].filter(Boolean) });
+    c.push({ off: takeoff(L[i]), arr: landing(L[i]), dep: L[i + 1] ? leaving(L[i + 1]) : fallDep, home: L[i + 1] ? homeLand(L[i + 1]) : "",
+      stops: L[i].stops ?? 1, src: [L[i], L[i + 1]].filter(Boolean) });
   else L.forEach(leg => c.push(OCR.mode === "out"
-    ? { arr: landing(leg), dep: fallDep, stops: leg.stops ?? 1, src: [leg] }
-    : { arr: fallArr, dep: leaving(leg), stops: leg.stops ?? 1, src: [leg] }));
+    ? { off: takeoff(leg), arr: landing(leg), dep: fallDep, home: "", stops: leg.stops ?? 1, src: [leg] }
+    : { off: "", arr: fallArr, dep: leaving(leg), home: homeLand(leg), stops: leg.stops ?? 1, src: [leg] }));
   /* A price printed on a flight's own row wins; otherwise prices go to the options in reading order */
   const rowPrices = L.some(l => l.price != null);
   c.forEach((x, k) => x.price = (rowPrices ? x.src.map(l => l.price).find(p => p != null) : OCR.prices[k]) ?? "");
@@ -1141,8 +1262,10 @@ function renderOcr() {
     <p class="hint">${c.length ? `Read ${plural(c.length, "option")} from the screenshot. OCR makes mistakes: check each row against the image, fix anything wrong, then add it.` : "No flight times found in this screenshot. Try a sharper or closer crop of the flight list."}
       ${OCR.dateNote}</p>
     ${c.map((x, k) => `<div class="fl-cand fl-grid" data-k="${k}">
+      <label>Takes off from home<input type="datetime-local" data-f="off" value="${x.off}" title="Take-off time from your airport read from the screenshot, in home time. Correct it if needed."></label>
       <label>Lands in Kathmandu<input type="datetime-local" data-f="arr" value="${x.arr}" title="Landing time in Kathmandu read from the screenshot. Correct it if the OCR misread it."></label>
       <label>Leaves Kathmandu<input type="datetime-local" data-f="dep" value="${x.dep}" title="Take-off time from Kathmandu for the flight home. Correct it if needed."></label>
+      <label>Lands back home<input type="datetime-local" data-f="home" value="${x.home}" title="Landing time at your airport on the way home, in home time. Correct it if needed."></label>
       <label>Stops on the way<input type="number" min="0" max="4" step="1" data-f="stops" value="${x.stops}" title="Connections on the outbound flight, read from the screenshot."></label>
       <label>Total price<input type="number" min="0" step="1" data-f="price" value="${x.price}" placeholder="optional" title="Price read from the screenshot, if any. Only used for sorting."></label>
       <div class="fl-cand-btns">${x.added
@@ -1255,7 +1378,7 @@ function flAdded(n) {
 }
 const addCand = row => {
   const v = f => row.querySelector(`[data-f="${f}"]`).value;
-  const msg = flAdd(v("arr"), v("dep"), v("stops"), v("price"));
+  const msg = flAdd(v("arr"), v("dep"), v("stops"), v("price"), { takeoff: v("off"), home: v("home") });
   const err = row.querySelector(".fl-err");
   err.hidden = !msg; err.textContent = msg;
   if (!msg) {
@@ -1281,6 +1404,12 @@ $f("fl-ocr").addEventListener("click", e => {
   if (e.target.id === "ocr-close") { $f("fl-ocr").hidden = true; $f("fl-ocr").innerHTML = ""; }
 });
 $f("fl-results").addEventListener("click", e => {
+  const c = e.target.closest("button[data-choose]");
+  if (c) {
+    FL.chosen = flKey(FL.options[+c.dataset.choose]); flEditing = false; flSave(); flResults();
+    $f("tab-flights").scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
   const b = e.target.closest("button[data-del]");
   if (!b) return;
   FL.options.splice(+b.dataset.del, 1); flSave(); flResults();
