@@ -169,6 +169,24 @@
   .fl-err { color: #b4232f; font-size: .85rem; margin: 8px 0 0; }
   @media (prefers-color-scheme: dark) { .fl-err { color: #ff8a93; } }
   @media (max-width: 560px) { .fl-line div { font-size: 0; padding: 6px 0; } .fl-line div b { font-size: .6rem; } }
+  .fl-drop { display: flex; flex-direction: column; gap: 3px; border: 2px dashed var(--line); border-radius: 10px;
+    padding: 12px 14px; margin-bottom: 12px; font-size: .9rem; color: var(--muted); }
+  .fl-drop b { color: var(--ink); }
+  .fl-drop.over { border-color: var(--accent); background: var(--snow); }
+  .fl-pick { color: var(--accent); font-weight: 600; text-decoration: underline; cursor: pointer; }
+  .fl-ocr { background: var(--snow); border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; }
+  .fl-ocr-head { display: flex; gap: 10px 14px; flex-wrap: wrap; }
+  .fl-ocr-head label { display: flex; flex-direction: column; gap: 3px; font-size: .78rem; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .04em; }
+  .fl-ocr-head input, .fl-ocr-head select { font: inherit; font-size: .92rem; text-transform: none; letter-spacing: 0; padding: 6px 8px;
+    border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+  .fl-cand { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin-top: 8px; }
+  .fl-cand input { background: var(--card); }
+  .fl-cand .fl-src, .fl-cand .fl-err { grid-column: 1 / -1; margin: 0; }
+  .fl-cand-btns { display: flex; gap: 6px; align-items: flex-end; flex-wrap: wrap; }
+  .fl-rm { font: inherit; font-size: .82rem; border: 1px solid var(--line); background: none; color: var(--muted);
+    border-radius: 8px; padding: 7px 10px; cursor: pointer; }
+  .fl-raw { white-space: pre-wrap; font-size: .75rem; max-height: 220px; overflow: auto; background: var(--card); padding: 8px; border-radius: 8px; }
 </style>
 </head>
 <body>
@@ -266,7 +284,14 @@
 
     <div class="card fl-card">
       <h2>Check flights against the trek</h2>
-      <p class="hint" style="margin:0 0 10px">Found a flight you like? Enter when it lands in Kathmandu and when the flight home leaves Kathmandu, as shown on the booking site.</p>
+      <p class="hint" style="margin:0 0 10px">Found a flight you like? Paste a screenshot of the results, or enter when it lands in Kathmandu and when the flight home leaves Kathmandu, as shown on the booking site.</p>
+      <div id="fl-drop" class="fl-drop" title="Paste (Ctrl+V or ⌘V), drop or choose a screenshot of flight results. The text is read on this device; the image isn't uploaded anywhere.">
+        <b>📋 Paste a screenshot of flights</b>
+        <span>Press Ctrl+V (⌘V on Mac) on this tab, drop an image here, or
+          <label class="fl-pick" title="Opens a file picker to choose a screenshot, or your photo library on a phone.">choose a screenshot<input type="file" id="fl-file" accept="image/*" hidden></label>.
+          The times are read on this device and filled in below for you to check.</span>
+      </div>
+      <div id="fl-ocr" class="fl-ocr" hidden></div>
       <form id="fl-form" class="fl-grid" novalidate>
         <label>Lands in Kathmandu
           <input id="fl-in-arr" type="datetime-local" title="Date and time the outbound flight lands in Kathmandu, in Nepal time (as the booking site shows it).">
@@ -961,21 +986,276 @@ $f("fl-adults").addEventListener("change", e => { const n = Math.min(9, Math.max
 $f("fl-cabin").addEventListener("change", e => flSet("cabin", e.target.value));
 $f("fl-out").addEventListener("change", e => flSet("out", e.target.value));
 $f("fl-ret").addEventListener("change", e => flSet("ret", e.target.value));
-$f("fl-form").addEventListener("submit", e => {
-  e.preventDefault();
-  const err = $f("fl-form-err"), arr = $f("fl-in-arr").value, dep = $f("fl-in-dep").value;
+/* Adds one flight pair to the list; returns an error message, or "" when it was added */
+function flAdd(arr, dep, stopsV, priceV) {
   const a = parseLocal(arr), d = parseLocal(dep);
   const msg = !START ? "Pick the trek start date (day 1) at the top first."
     : !a || !d ? "Enter both the landing time and the departure time."
     : d <= a ? "The flight home must leave after the outbound flight lands." : "";
-  err.hidden = !msg; err.textContent = msg;
-  if (msg) return;
-  const pv = $f("fl-in-price").value;
-  const price = pv === "" || isNaN(+pv) ? null : Math.max(0, Math.round(+pv));
-  const stops = Math.min(4, Math.max(0, Math.round(+$f("fl-in-stops").value) || 0));
+  if (msg) return msg;
+  const price = priceV === "" || priceV == null || isNaN(+priceV) ? null : Math.max(0, Math.round(+priceV));
+  const stops = Math.min(4, Math.max(0, Math.round(+stopsV) || 0));
   FL.options.push({ arr, dep, stops, price });
   flSave(); flResults();
-  $f("fl-in-price").value = "";
+  return "";
+}
+$f("fl-form").addEventListener("submit", e => {
+  e.preventDefault();
+  const err = $f("fl-form-err");
+  const msg = flAdd($f("fl-in-arr").value, $f("fl-in-dep").value, $f("fl-in-stops").value, $f("fl-in-price").value);
+  err.hidden = !msg; err.textContent = msg;
+  if (!msg) $f("fl-in-price").value = "";
+});
+
+/* ---------- Flights from a screenshot: OCR in the browser (Tesseract.js), then a review list ---------- */
+/* The image never leaves the device; only the OCR engine and its English data are downloaded (once, then cached). */
+const OCR = { legs: [], prices: [], mode: "pairs", out: "", ret: "", text: "", added: new Set() };
+const TESS_URL = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+let tessLoad = null;
+const loadTess = () => tessLoad || (tessLoad = new Promise((ok, fail) => {
+  const s = document.createElement("script");
+  s.src = TESS_URL; s.onload = () => ok(window.Tesseract); s.onerror = () => { tessLoad = null; fail(new Error("load")); };
+  document.head.appendChild(s);
+}));
+
+/* Upscale small screenshots, make them grey, and flip dark-mode screenshots to dark text on light */
+async function prepImage(blob, thr = 0) {
+  const bmp = await createImageBitmap(blob);
+  const k = Math.min(3, Math.max(1, 3200 / bmp.width));   // small UI text reads far better at about 2× size
+  const c = document.createElement("canvas");
+  c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  const g = c.getContext("2d");
+  g.imageSmoothingQuality = "high";
+  g.drawImage(bmp, 0, 0, c.width, c.height);
+  const im = g.getImageData(0, 0, c.width, c.height), px = im.data;
+  let sum = 0;
+  for (let i = 0; i < px.length; i += 4) sum += px[i] * .299 + px[i + 1] * .587 + px[i + 2] * .114;
+  const dark = sum / (px.length / 4) < 110;
+  for (let i = 0; i < px.length; i += 4) {
+    let y = px[i] * .299 + px[i + 1] * .587 + px[i + 2] * .114;
+    if (dark) y = 255 - y;
+    if (thr) y = y < thr ? 0 : 255;   // high-contrast pass: pale grey and coloured text turn solid black
+    px[i] = px[i + 1] = px[i + 2] = y;
+  }
+  g.putImageData(im, 0, 0);
+  return c;
+}
+
+const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+/* Reads flight legs (departure → arrival, with +1 day markers), stops and prices out of OCR text */
+function parseFlights(raw) {
+  const text = raw.replace(/[–—−]/g, "-").replace(/(\d)\s*[:.;]\s*(\d{2})/g, "$1:$2");
+  const lines = text.split(/\n+/).map(l => l.trim()).filter(Boolean);
+  const timeRe = /\b([01]?\d|2[0-3]):([0-5]\d)(?:\s*([ap])\.?\s*m\b\.?)?(\s*[+*]\s*([1-3lI])\b)?/gi;
+  /* OCR often drops the colon ("0630"); four-digit times count only on lines that already look like a flight row */
+  const bareRe = /(?<![\d$€£₪,.])\b([01]\d|2[0-3])([0-5]\d)\b(?![\d,.%])(\s*[+*]\s*([1-3lI])\b)?/g;
+  const times = line => {
+    const ts = [...line.matchAll(timeRe)].map(m => {
+      let h = +m[1];
+      if (m[3]) { const pm = /p/i.test(m[3]); if (h === 12) h = pm ? 12 : 0; else if (pm) h += 12; }
+      const plus = m[5] ? (/[lI]/.test(m[5]) ? 1 : +m[5]) : 0;
+      return { t: `${String(h).padStart(2, "0")}:${m[2]}`, plus, at: m.index };
+    });
+    const bare = [...line.matchAll(bareRe)].filter(m => !(+m[0].slice(0, 4) >= 2020 && +m[0].slice(0, 4) <= 2035) && !ts.some(t => Math.abs(t.at - m.index) < 5));
+    if (ts.length + bare.length >= 2 && (ts.length || bare.length === 2 || /\b[A-Z]{3}\b|stops?|direct/i.test(line)))
+      bare.forEach(m => ts.push({ t: `${m[1]}:${m[2]}`, plus: m[4] ? (/[lI]/.test(m[4]) ? 1 : +m[4]) : 0, at: m.index }));
+    return ts.sort((a, b) => a.at - b.at);
+  };
+  const stopsIn = s => { const m = /\b(\d)\s*stops?\b/i.exec(s); return m ? +m[1] : /non-?stop|direct\b/i.test(s) ? 0 : null; };
+  const priceRe = /(\+\s*)?(?:[₪$€£¥]|\b(?:ILS|NIS|USD|EUR|GBP|US\$)\b)\s?(\d{1,3}(?:[,.\s]\d{3})+|\d{2,6})(?![\d:])|(\+\s*)?\b(\d{1,3}(?:[,.]\d{3})+|\d{3,6})\s?(?:[₪€]|\b(?:ILS|NIS|EUR|USD)\b)/g;
+  const pricesIn = s => [...s.matchAll(priceRe)].filter(m => !m[1] && !m[3]).map(m => +(m[2] || m[4]).replace(/[,.\s]/g, ""));
+  const legs = [];
+  lines.forEach((l, i) => {
+    if (/00:?00\s*-\s*23:?59/.test(l)) return;   // a site's "departure times" filter, not a flight
+    const ts = times(l);
+    for (let j = 0; j + 1 < ts.length; j += 2) {
+      const near = [l, lines[i + 1] || "", lines[i + 2] || ""].join(" ");
+      legs.push({ dep: ts[j].t, arr: ts[j + 1].t, plus: ts[j + 1].plus || (/^\s*\+\s*([12])\b/.exec(lines[i + 1] || "") ? 1 : 0),
+        stops: stopsIn(near), price: pricesIn(l)[0] ?? null, src: l });
+    }
+  });
+  if (!legs.length) {   // no line holds two times: the layout put each time on its own line
+    const all = lines.flatMap((l, i) => times(l).map(t => ({ ...t, i })));
+    const stops = lines.map(stopsIn).filter(s => s != null);
+    for (let j = 0; j + 1 < all.length; j += 2)
+      legs.push({ dep: all[j].t, arr: all[j + 1].t, plus: all[j + 1].plus, stops: stops[legs.length] ?? null, price: null, src: `${all[j].t} … ${all[j + 1].t}` });
+  }
+  const prices = pricesIn(text);
+  for (let k = legs.length - 1; k >= 0; k--) if (legs[k].dep === "00:00" && /^23:5\d$/.test(legs[k].arr)) legs.splice(k, 1);   // time-filter sliders
+  /* Dates written in the screenshot ("Thu, 7 Oct", "Oct 7"); used only if there are one or two of them */
+  const dates = [];
+  for (const m of text.matchAll(/\b(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec)[a-z]*\b|\b(jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec)[a-z]*\s+(\d{1,2})\b/gi)) {
+    const d = +(m[1] || m[4]), mo = MONTHS.indexOf((m[2] || m[3]).slice(0, 3).toLowerCase());
+    if (d < 1 || d > 31 || mo < 0 || !START) continue;
+    let dt = new Date(START.getFullYear(), mo, d);
+    if (dt - START < -180 * 864e5) dt = new Date(START.getFullYear() + 1, mo, d);
+    if (dt - START > 180 * 864e5) dt = new Date(START.getFullYear() - 1, mo, d);
+    const iso = toISO(dt);
+    if (!dates.includes(iso)) dates.push(iso);
+  }
+  const mode = /returning flights|return flights|select return/i.test(text) ? "ret"
+    : /departing flights|top departing|select outbound|outbound flights/i.test(text) || legs.length === 1 ? "out" : "pairs";
+  return { legs, prices, dates: dates.length <= 2 ? dates : [], mode };
+}
+
+const addDays = (iso, n) => { const d = parseISO(iso); return d ? toISO(new Date(d.getFullYear(), d.getMonth(), d.getDate() + n)) : ""; };
+function ocrCandidates() {
+  const L = OCR.legs, c = [];
+  const fallArr = $f("fl-in-arr").value, fallDep = $f("fl-in-dep").value;
+  /* Landing at an earlier clock time than take-off means the next day, even when OCR missed the small "+1" */
+  const landing = leg => OCR.out ? `${addDays(OCR.out, Math.max(leg.plus, leg.arr < leg.dep ? 1 : 0))}T${leg.arr}` : "";
+  const leaving = leg => OCR.ret ? `${OCR.ret}T${leg.dep}` : "";
+  if (OCR.mode === "pairs") for (let i = 0; i < L.length; i += 2)
+    c.push({ arr: landing(L[i]), dep: L[i + 1] ? leaving(L[i + 1]) : fallDep, stops: L[i].stops ?? 1, src: [L[i], L[i + 1]].filter(Boolean) });
+  else L.forEach(leg => c.push(OCR.mode === "out"
+    ? { arr: landing(leg), dep: fallDep, stops: leg.stops ?? 1, src: [leg] }
+    : { arr: fallArr, dep: leaving(leg), stops: leg.stops ?? 1, src: [leg] }));
+  /* A price printed on a flight's own row wins; otherwise prices go to the options in reading order */
+  const rowPrices = L.some(l => l.price != null);
+  c.forEach((x, k) => x.price = (rowPrices ? x.src.map(l => l.price).find(p => p != null) : OCR.prices[k]) ?? "");
+  c.forEach(x => x.added = x.src.every(l => l.added));
+  return c;
+}
+
+function renderOcr() {
+  const box = $f("fl-ocr");
+  const c = ocrCandidates();
+  const legTxt = l => `${l.dep} → ${l.arr}${l.plus ? "+" + l.plus : ""}`;
+  box.innerHTML = `<div class="fl-ocr-head">
+      <label>This screenshot shows
+        <select id="ocr-mode" title="How the flights in the screenshot are laid out. Round trips pair each outbound flight with the return flight under it.">
+          <option value="pairs">Round trips (out + back)</option><option value="out">Outbound flights only</option><option value="ret">Return flights only</option>
+        </select></label>
+      <label>Leave home on<input type="date" id="ocr-out" value="${OCR.out}" title="Date the outbound flights in the screenshot leave home. Landing dates add the +1 / +2 day markers to it."></label>
+      <label>Leave Kathmandu on<input type="date" id="ocr-ret" value="${OCR.ret}" title="Date the return flights in the screenshot take off from Kathmandu."></label>
+    </div>
+    <p class="hint">${c.length ? `Read ${plural(c.length, "option")} from the screenshot. OCR makes mistakes: check each row against the image, fix anything wrong, then add it.` : "No flight times found in this screenshot. Try a sharper or closer crop of the flight list."}
+      ${OCR.dateNote}</p>
+    ${c.map((x, k) => `<div class="fl-cand fl-grid" data-k="${k}">
+      <label>Lands in Kathmandu<input type="datetime-local" data-f="arr" value="${x.arr}" title="Landing time in Kathmandu read from the screenshot. Correct it if the OCR misread it."></label>
+      <label>Leaves Kathmandu<input type="datetime-local" data-f="dep" value="${x.dep}" title="Take-off time from Kathmandu for the flight home. Correct it if needed."></label>
+      <label>Stops on the way<input type="number" min="0" max="4" step="1" data-f="stops" value="${x.stops}" title="Connections on the outbound flight, read from the screenshot."></label>
+      <label>Total price<input type="number" min="0" step="1" data-f="price" value="${x.price}" placeholder="optional" title="Price read from the screenshot, if any. Only used for sorting."></label>
+      <div class="fl-cand-btns">${x.added
+        ? `<span class="fl-btn ghost" aria-disabled="true" title="This option is already in your list below.">Added ✓</span>`
+        : `<button type="button" class="fl-btn" data-add="${k}" title="Checks this option against the trek and adds it to the list below.">Check and add</button>`}
+        <button type="button" class="fl-rm" data-rm="${k}" title="Drops this row: use it for text the reader mistook for a flight. The remaining flights are paired again.">Remove</button></div>
+      <small class="hint fl-src">From the image: ${x.src.map(legTxt).join(" · ")}</small>
+      <p class="fl-err" hidden></p>
+    </div>`).join("")}
+    <div class="fl-links">
+      ${c.length > 1 ? `<button type="button" class="fl-btn" id="ocr-all" title="Adds every row above that isn't added yet and has both times filled in.">Add all</button>` : ""}
+      <button type="button" class="fl-btn ghost" id="ocr-close" title="Closes this screenshot. Flights already added stay in your list.">Done with this screenshot</button>
+    </div>
+    <details><summary class="hint">Text read from the image</summary><pre class="fl-raw">${OCR.text.replace(/[&<>]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[ch]))}</pre></details>`;
+  $f("ocr-mode").value = OCR.mode;
+  box.hidden = false;
+}
+
+/* Merges two OCR readings of the same list: flights both found are matched in order (longest common
+   subsequence), and a flight only one pass found is slotted in where it appeared */
+function mergeLegs(A, B) {
+  const key = l => `${l.dep}>${l.arr}`, n = A.length, m = B.length;
+  const L = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--)
+    L[i][j] = key(A[i]) === key(B[j]) ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  const out = [];
+  let i = 0, j = 0;
+  while (i < n && j < m) {
+    if (key(A[i]) === key(B[j])) {
+      const x = { ...A[i] };
+      ["price", "stops"].forEach(f => x[f] = x[f] ?? B[j][f]);
+      x.plus = Math.max(A[i].plus, B[j].plus);
+      out.push(x); i++; j++;
+    } else if (L[i + 1][j] >= L[i][j + 1]) out.push(A[i++]);
+    else out.push(B[j++]);
+  }
+  /* Near-duplicates (one digit misread in one pass, e.g. 09:05 / 08:05) next to each other count once */
+  const merged = out.concat(A.slice(i), B.slice(j));
+  const close = (x, y) => x && y && [x.dep, x.arr].join("").split("").filter((c, k) => c !== [y.dep, y.arr].join("")[k]).length === 1;
+  return merged.filter((x, k) => !(close(x, merged[k - 1]) && !A.includes(x)));
+}
+
+async function readScreenshot(blob) {
+  if (!blob || !/^image\//.test(blob.type)) return;
+  const box = $f("fl-ocr");
+  box.hidden = false;
+  box.innerHTML = `<p class="hint" id="ocr-status">Loading the text reader…</p>`;
+  const status = t => { const s = $f("ocr-status"); if (s) s.textContent = t; };
+  try {
+    const T = await loadTess();
+    /* Two passes (plain grey, then high contrast) miss different rows; their flights are merged in reading order */
+    let pass = 1;
+    const worker = await T.createWorker("eng", 1, {
+      logger: m => m.status === "recognizing text" && status(`Reading the screenshot, pass ${pass} of 2… ${Math.round(m.progress * 100)}%`)
+    });
+    let texts = [];
+    try {
+      await worker.setParameters({ tessedit_pageseg_mode: "6" });   // one block of text: keeps each flight row on one line
+      for (const thr of [0, 160]) {
+        status(`Reading the screenshot, pass ${pass} of 2…`);
+        texts.push((await worker.recognize(await prepImage(blob, thr))).data.text || "");
+        pass++;
+      }
+    } finally { worker.terminate(); }
+    const [a, b] = texts.map(parseFlights), p = a;
+    p.legs = mergeLegs(a.legs, b.legs);
+    if (b.prices.length > a.prices.length) p.prices = b.prices;
+    if (!a.dates.length) p.dates = b.dates;
+    const data = { text: texts[0] };
+    Object.assign(OCR, { legs: p.legs, prices: p.prices, mode: p.mode, text: data.text,
+      out: p.dates[0] || FL.out || "", ret: p.dates[1] || FL.ret || "" });
+    OCR.dateNote = p.dates.length === 2 ? "Dates were read from the screenshot."
+      : p.dates.length === 1 ? "Only one date was in the screenshot; the other comes from your search above. Check both."
+      : "The screenshot has no clear dates, so they come from your search above. Change them if the screenshot is for other days.";
+    renderOcr();
+  } catch (e) {
+    box.innerHTML = `<p class="fl-err">${e.message === "load"
+      ? "Couldn't load the text reader. It needs an internet connection the first time."
+      : "Couldn't read this image. Try a PNG or JPG screenshot."}</p>`;
+  }
+}
+
+$f("fl-file").addEventListener("change", e => { readScreenshot(e.target.files[0]); e.target.value = ""; });
+const drop = $f("fl-drop");
+["dragenter", "dragover"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(t => drop.addEventListener(t, () => drop.classList.remove("over")));
+drop.addEventListener("drop", e => { e.preventDefault(); readScreenshot([...e.dataTransfer.files].find(f => /^image\//.test(f.type))); });
+/* Ctrl+V / ⌘V anywhere on the Flights tab takes an image from the clipboard */
+document.addEventListener("paste", e => {
+  if ($f("tab-flights").hidden) return;
+  const item = [...(e.clipboardData?.items || [])].find(i => i.kind === "file" && /^image\//.test(i.type));
+  if (!item) return;
+  e.preventDefault();
+  readScreenshot(item.getAsFile());
+});
+$f("fl-ocr").addEventListener("change", e => {
+  if (e.target.id === "ocr-mode") { OCR.mode = e.target.value; OCR.legs.forEach(l => l.added = false); renderOcr(); }
+  else if (e.target.id === "ocr-out") { OCR.out = e.target.value; renderOcr(); }
+  else if (e.target.id === "ocr-ret") { OCR.ret = e.target.value; renderOcr(); }
+});
+const addCand = row => {
+  const v = f => row.querySelector(`[data-f="${f}"]`).value;
+  const msg = flAdd(v("arr"), v("dep"), v("stops"), v("price"));
+  const err = row.querySelector(".fl-err");
+  err.hidden = !msg; err.textContent = msg;
+  if (!msg) {
+    ocrCandidates()[+row.dataset.k].src.forEach(l => l.added = true);
+    row.querySelector("[data-add]").outerHTML = `<span class="fl-btn ghost" aria-disabled="true" title="This option is already in your list below.">Added ✓</span>`;
+  }
+  return !msg;
+};
+$f("fl-ocr").addEventListener("click", e => {
+  const add = e.target.closest("[data-add]");
+  if (add) return addCand(add.closest(".fl-cand"));
+  const rm = e.target.closest("[data-rm]");
+  if (rm) {
+    const gone = ocrCandidates()[+rm.dataset.rm].src;
+    OCR.legs = OCR.legs.filter(l => !gone.includes(l));
+    return renderOcr();
+  }
+  if (e.target.id === "ocr-all") document.querySelectorAll("#fl-ocr .fl-cand").forEach(r => r.querySelector("[data-add]") && addCand(r));
+  if (e.target.id === "ocr-close") { $f("fl-ocr").hidden = true; $f("fl-ocr").innerHTML = ""; }
 });
 $f("fl-results").addEventListener("click", e => {
   const b = e.target.closest("button[data-del]");
