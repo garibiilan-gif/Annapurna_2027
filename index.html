@@ -183,6 +183,11 @@
   .fl-cand { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin-top: 8px; }
   .fl-cand input { background: var(--card); }
   .fl-cand .fl-src, .fl-cand .fl-err { grid-column: 1 / -1; margin: 0; }
+  .fl-yours { font-size: 1rem; margin: 16px 0 0; padding-top: 12px; border-top: 1px solid var(--line); scroll-margin-top: 60px; }
+  .fl-yours .hint { font-weight: 400; }
+  .fl-note { margin: 10px 0 0; padding: 8px 11px; border-radius: 8px; font-size: .9rem; font-weight: 600;
+    background: rgba(47,125,91,.14); color: #2f7d5b; }
+  @media (prefers-color-scheme: dark) { .fl-note { color: #5cc092; } }
   .fl-cand-btns { display: flex; gap: 6px; align-items: flex-end; flex-wrap: wrap; }
   .fl-rm { font: inherit; font-size: .82rem; border: 1px solid var(--line); background: none; color: var(--muted);
     border-radius: 8px; padding: 7px 10px; cursor: pointer; }
@@ -310,6 +315,8 @@
         </label>
       </form>
       <p class="fl-err" id="fl-form-err" hidden></p>
+      <p class="fl-note" id="fl-note" role="status" hidden></p>
+      <h3 class="fl-yours" id="fl-yours">Your flights</h3>
       <div id="fl-results"></div>
     </div>
   </section>
@@ -949,7 +956,9 @@ function flPlan() {
 
 function flResults() {
   const box = $f("fl-results");
-  if (!FL.options.length) { box.innerHTML = `<p class="hint">No flights checked yet.</p>`; return; }
+  $f("fl-yours").innerHTML = `Your flights${FL.options.length ? ` (${FL.options.length})` : ""}`
+    + `<span class="hint"> · saved in this browser, safest first</span>`;
+  if (!FL.options.length) { box.innerHTML = `<p class="hint">No flights checked yet. Flights you add from a screenshot or the form above appear here.</p>`; return; }
   if (!START) { box.innerHTML = `<p class="fl-err">Pick the trek start date to check your ${plural(FL.options.length, "saved flight")}.</p>`; return; }
   const rows = FL.options.map((o, i) => {
     const a = parseLocal(o.arr), d = parseLocal(o.dep);
@@ -1004,7 +1013,7 @@ $f("fl-form").addEventListener("submit", e => {
   const err = $f("fl-form-err");
   const msg = flAdd($f("fl-in-arr").value, $f("fl-in-dep").value, $f("fl-in-stops").value, $f("fl-in-price").value);
   err.hidden = !msg; err.textContent = msg;
-  if (!msg) $f("fl-in-price").value = "";
+  if (!msg) { $f("fl-in-price").value = ""; flAdded(1); }
 });
 
 /* ---------- Flights from a screenshot: OCR in the browser (Tesseract.js), then a review list ---------- */
@@ -1234,6 +1243,16 @@ $f("fl-ocr").addEventListener("change", e => {
   else if (e.target.id === "ocr-out") { OCR.out = e.target.value; renderOcr(); }
   else if (e.target.id === "ocr-ret") { OCR.ret = e.target.value; renderOcr(); }
 });
+/* Confirms an add: clears the manual form's old error, says where the flights went, and shows the list */
+function flAdded(n) {
+  $f("fl-form-err").hidden = true;
+  const note = $f("fl-note");
+  note.textContent = `✓ Added ${plural(n, "flight")} to Your flights below.`;
+  note.hidden = false;
+  clearTimeout(flAdded.t);
+  flAdded.t = setTimeout(() => note.hidden = true, 6000);
+  $f("fl-yours").scrollIntoView({ behavior: "smooth", block: "start" });
+}
 const addCand = row => {
   const v = f => row.querySelector(`[data-f="${f}"]`).value;
   const msg = flAdd(v("arr"), v("dep"), v("stops"), v("price"));
@@ -1241,20 +1260,24 @@ const addCand = row => {
   err.hidden = !msg; err.textContent = msg;
   if (!msg) {
     ocrCandidates()[+row.dataset.k].src.forEach(l => l.added = true);
-    row.querySelector("[data-add]").outerHTML = `<span class="fl-btn ghost" aria-disabled="true" title="This option is already in your list below.">Added ✓</span>`;
+    row.querySelector("[data-add]").outerHTML = `<span class="fl-btn ghost" aria-disabled="true" title="This option is already in Your flights below.">Added ✓</span>`;
   }
   return !msg;
 };
 $f("fl-ocr").addEventListener("click", e => {
   const add = e.target.closest("[data-add]");
-  if (add) return addCand(add.closest(".fl-cand"));
+  if (add) return addCand(add.closest(".fl-cand")) && flAdded(1);
   const rm = e.target.closest("[data-rm]");
   if (rm) {
     const gone = ocrCandidates()[+rm.dataset.rm].src;
     OCR.legs = OCR.legs.filter(l => !gone.includes(l));
     return renderOcr();
   }
-  if (e.target.id === "ocr-all") document.querySelectorAll("#fl-ocr .fl-cand").forEach(r => r.querySelector("[data-add]") && addCand(r));
+  if (e.target.id === "ocr-all") {
+    let n = 0;
+    document.querySelectorAll("#fl-ocr .fl-cand").forEach(r => r.querySelector("[data-add]") && addCand(r) && n++);
+    if (n) flAdded(n);
+  }
   if (e.target.id === "ocr-close") { $f("fl-ocr").hidden = true; $f("fl-ocr").innerHTML = ""; }
 });
 $f("fl-results").addEventListener("click", e => {
