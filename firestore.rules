@@ -1,6 +1,6 @@
 rules_version = '2';
 // Who can do what (enforced by Firebase, not by the page):
-//   anyone            reads trips (each trip page is shared by link)
+//   anyone            opens a trip by its exact link (not a list of trips)
 //   a trip's admins   change that trip's dates and travel details only
 //   the owner         creates, renames and deletes trips and chooses their admins
 // A trip's admin list lives apart from the trip, so it is never readable by the public.
@@ -23,7 +23,9 @@ service cloud.firestore {
     }
 
     match /trips/{tripId} {
-      allow read: if true;
+      // Opened only by its exact link (the id holds a random code); only the owner lists all trips
+      allow get: if true;
+      allow list: if isOwner();
       allow delete: if isOwner();
       allow update: if validTrip(request.resource.data) && (isOwner() || (isAdmin(tripId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["start", "flights", "details", "updatedAt"])));

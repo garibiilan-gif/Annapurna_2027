@@ -80,7 +80,9 @@ async function listTrips() {
   return trips.sort((a, b) => (a.start || "9999").localeCompare(b.start || "9999") || a.name.localeCompare(b.name));
 }
 async function createTrip({ name, trek, admins }) {
-  const id = slug(name) || `trip-${Date.now().toString(36)}`;
+  /* The link carries a random code, so a viewer of one trip can't guess another's */
+  const code = [...crypto.getRandomValues(new Uint8Array(10))].map(b => "abcdefghijkmnpqrstuvwxyz23456789"[b % 32]).join("");
+  const id = `${slug(name).slice(0, 30) || "trip"}-${code}`;
   if ((await getDoc(tripRef(id))).exists()) throw new Error(`A trip with the link name “${id}” already exists. Choose another name.`);
   await setDoc(tripRef(id), { trek, name: name.trim(), start: null, flights: {}, updatedAt: serverTimestamp() });
   await setDoc(adminsRef(id), { emails: cleanEmails(admins) });

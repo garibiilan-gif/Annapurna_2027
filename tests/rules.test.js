@@ -22,9 +22,12 @@ const dana = (verified = true) => env.authenticatedContext("dana", { email: "Dan
 const stranger = () => env.authenticatedContext("eve", { email: "eve@example.com", email_verified: true }).firestore();
 const anon = () => env.unauthenticatedContext().firestore();
 
-test("anyone can read and list trips", async () => {
+test("anyone can open a trip by its link, but only the owner can list trips", async () => {
   await assertSucceeds(getDoc(doc(anon(), "trips/apr")));
-  await assertSucceeds(getDocs(collection(anon(), "trips")));
+  await assertFails(getDocs(collection(anon(), "trips")));
+  await assertFails(getDocs(collection(stranger(), "trips")));
+  await assertFails(getDocs(collection(dana(), "trips")));
+  await assertSucceeds(getDocs(collection(owner(), "trips")));
 });
 test("admin lists are private", async () => {
   await assertFails(getDoc(doc(anon(), "tripAdmins/apr")));
