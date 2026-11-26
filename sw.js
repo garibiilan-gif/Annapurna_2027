@@ -1,8 +1,8 @@
 // Offline cache: the app itself up front, map tiles as they are viewed.
-const APP = "annapurna-app-v22";
+const APP = "annapurna-app-v23";
 const TILES = "annapurna-tiles-v1";
 const SHELL = [
-  "./", "index.html", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png",
+  "./", "index.html", "cloud.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png",
   "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css",
   "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"
 ];
@@ -18,6 +18,8 @@ self.addEventListener("fetch", e => {
   const url = e.request.url;
   if (e.request.method !== "GET") return;
   if (url.includes("open-meteo.com")) return;  // live weather: always from the network
+  // Sign-in and the trip database handle their own connections and offline copy
+  if (/googleapis\.com|firebaseapp\.com|firebaseio\.com|google\.com\/recaptcha/.test(url)) return;
   if (url.includes("tile.opentopomap.org") || url.includes("wikimedia.org/")) {
     e.respondWith(caches.open(TILES).then(async c => {
       const hit = await c.match(e.request);

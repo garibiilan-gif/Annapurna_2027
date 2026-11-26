@@ -94,6 +94,27 @@
   .mytrip button { font: inherit; font-size: .82rem; padding: 5px 10px; border-radius: 8px; cursor: pointer;
     border: 1px solid rgba(255,255,255,.4); background: none; color: #fff; }
   .mytrip p { margin: 6px 0 0; font-size: .85rem; opacity: .9; }
+  .mytrip-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .mytrip-head h2 { margin: 0; }
+  .mytrip #acct-btn[hidden] { display: none; }
+  /* Viewers of a shared trip: no editing controls */
+  .ro #start, .ro #clear-start, .ro #fl-tools, .ro #fl-change, .ro label[for="start"] { display: none !important; }
+  .role-note { font-size: .78rem; opacity: .85; }
+  /* Sign-in and owner box */
+  #acct-dlg { border: 0; border-radius: 14px; padding: 18px 20px; width: min(560px, 94vw); max-height: 90vh;
+    background: var(--card); color: var(--ink); box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+  #acct-dlg::backdrop { background: rgba(10,20,30,.55); }
+  #acct-dlg h2 { margin: 0 0 6px; font-size: 1.1rem; } #acct-dlg h3 { margin: 18px 0 6px; font-size: .95rem; }
+  .acct-close { float: right; font: inherit; font-size: 1.2rem; border: 0; background: none; color: var(--muted); cursor: pointer; }
+  .acct-form { display: grid; gap: 8px; margin-top: 12px; }
+  .acct-form label, .acct-admins { display: flex; flex-direction: column; gap: 3px; font-size: .78rem; font-weight: 600; color: var(--muted); }
+  .acct-form input, .acct-form select, .acct-admins input { font: inherit; font-size: .95rem; padding: 7px 9px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+  .acct-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .acct-msg { font-size: .88rem; min-height: 1em; }
+  .acct-trip { border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; margin-top: 8px; display: grid; gap: 6px; }
+  .linkish { font: inherit; font-size: .85rem; border: 0; background: none; color: var(--accent); cursor: pointer; padding: 0; text-decoration: underline; }
+  .linkish.danger { color: #b4232f; }
   td.day .date { font-size: .78rem; font-weight: 600; color: var(--muted); margin-top: 2px; }
   .hover-card em.when, .hover-card .when { font-style: normal; font-weight: 600; color: #b4410f; display: block; }
   .hover-card .links { margin-top: 4px; }
@@ -261,7 +282,7 @@
     <div class="stat"><b>Tea houses</b>every night</div>
   </div>
   <div class="mytrip">
-    <h2>My trip</h2>
+    <div class="mytrip-head"><h2 id="trip-title">My trip</h2><button type="button" id="acct-btn" hidden>Sign in</button></div>
     <div class="mytrip-row">
       <label for="start">Start date (day 1)</label>
       <input type="date" id="start">
@@ -390,6 +411,11 @@
     </div>
   </section>
 </main>
+
+<dialog id="acct-dlg" aria-label="Account">
+  <button type="button" class="acct-close" data-act="close" aria-label="Close">✕</button>
+  <div id="acct-body"></div>
+</dialog>
 
 <footer>Itinerary from Red Swissa Trekking Agency's 2026 package. Altitudes and times are approximate.<br>Place photos from Wikimedia Commons under Creative Commons licenses; each photo is credited on its card.<br>Banner: <a href="https://commons.wikimedia.org/wiki/File:Snowy_Annapurna_Range_-_panorama.jpg" target="_blank" rel="noopener">Snowy Annapurna Range</a> by Ali Sabbagh (CC0).</footer>
 
@@ -574,23 +600,34 @@ TREKS.annapurna = {
 /* ---------- Trips: one group walking a trek, with its own dates and travel details.
    For now the only trip is the one kept in this browser ("local"), stored under the same keys as before,
    so nothing already saved is lost. A shared database replaces TripStore in the next step. ---------- */
+const TRIP_ID = new URLSearchParams(location.search).get("trip") || "local";
+const TREK_HINT = "trek-of-";   // remembers a shared trip's trek, so the right plan shows before it loads
 const TripStore = {
   START_KEY: "annapurna-start",
   FLIGHTS_KEY: "annapurna-flights",
   load(id) {
+    if (id !== "local") {   // shared trip: filled in by cloud.js when it arrives
+      let trek = null; try { trek = localStorage.getItem(TREK_HINT + id); } catch (e) {}
+      return { id, trek: TREKS[trek] ? trek : "annapurna", name: "", start: null, flights: {} };
+    }
     const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
     let flights;
     try { flights = JSON.parse(get(this.FLIGHTS_KEY)) || {}; } catch (e) { flights = {}; }
     return { id, trek: "annapurna", name: "My trip", start: get(this.START_KEY), flights };
   },
   save(trip) {
+    if (trip.id !== "local") { window.TripApp.cloud?.saveTrip(trip); return; }
     try {
       trip.start ? localStorage.setItem(this.START_KEY, trip.start) : localStorage.removeItem(this.START_KEY);
       localStorage.setItem(this.FLIGHTS_KEY, JSON.stringify(trip.flights));
     } catch (e) {}
   }
 };
-const TRIP = TripStore.load("local");
+const TRIP = TripStore.load(TRIP_ID);
+/* What this visitor may do here: the trip in this browser is always theirs; a shared trip only for its admin or the owner */
+let ROLE = TRIP_ID === "local" ? "local" : "viewer";
+const canEdit = () => ROLE === "local" || ROLE === "admin" || ROLE === "owner";
+const RO = () => !canEdit();
 const TREK = TREKS[TRIP.trek] || TREKS.annapurna;
 const HUB = TREK.hub;
 const DAYS = TREK.days, PHOTOS = TREK.photos, LEG_PHOTOS = TREK.legPhotos;
@@ -614,14 +651,14 @@ const dayDate = d => START && new Date(START.getFullYear(), START.getMonth(), ST
 const fmtDate = dt => dt.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 const dateOf = d => START ? fmtDate(dayDate(d)) : "";
 function loadStart() {
-  const s = new URLSearchParams(location.search).get("start");
+  const s = TRIP.id === "local" ? new URLSearchParams(location.search).get("start") : null;   // a shared trip's date comes from the trip
   START = parseISO(parseISO(s) ? s : TRIP.start);
 }
 function saveStart(s) {
   START = parseISO(s);
   TRIP.start = START ? toISO(START) : null;
   TripStore.save(TRIP);
-  try {  /* keep the date in the address so a shared link carries it */
+  if (TRIP.id === "local") try {  /* keep the date in the address so a shared link carries it */
     const url = new URL(location.href);
     START ? url.searchParams.set("start", toISO(START)) : url.searchParams.delete("start");
     history.replaceState(null, "", url);
@@ -741,7 +778,9 @@ function renderTrip() {
   const sum = document.getElementById("trip-summary");
   startInput.value = START ? toISO(START) : "";
   clearBtn.hidden = !START;
-  if (!START) { sum.textContent = "Pick the date of day 1 to see dates on every day and place."; return; }
+  document.getElementById("trip-title").textContent = TRIP.id === "local" ? "My trip" : TRIP.name || "Trip";
+  if (!START) { sum.textContent = RO() ? (TRIP.loaded === false ? "This trip link doesn't exist, or was removed." : TRIP.loaded === "error" ? "Can't reach this trip right now. Check the connection; trips you have opened before also work offline." : TRIP.loaded ? "The trip's admin hasn't set the dates yet." : "Loading the trip…")
+    : "Pick the date of day 1 to see dates on every day and place."; return; }
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const until = Math.round((START - today) / 864e5), dayNow = 1 - until;
   const status = until > 0 ? `${fmt(until)} day${until === 1 ? "" : "s"} to go`
@@ -1127,6 +1166,10 @@ function renderMine() {
   const card = $f("fl-mine"), tools = $f("fl-tools");
   const o = FL.options.find(x => flKey(x) === FL.chosen);
   if (FL.chosen && !o) { FL.chosen = null; flSave(); }
+  if ((!o || !START) && RO()) {
+    card.innerHTML = `<h2 style="margin:0">Group flights</h2><p class="hint">${START ? "The trip's admin hasn't chosen the group's flights yet." : "The flights show here once the trip's admin sets the dates and chooses them."}</p>`;
+    card.hidden = false; tools.hidden = true; return;
+  }
   if (!o || !START) { card.hidden = true; tools.hidden = false; return; }
   const a = parseLocal(o.arr), d = parseLocal(o.dep);
   const ja = judgeArrival(a), jd = judgeDeparture(d), all = worst(ja[0], jd[0]);
@@ -1170,7 +1213,7 @@ function renderMine() {
   }
   CAL_INFO = info;
   const nightsBefore = 1 - na, spare = nd - 14, away = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - new Date(a.getFullYear(), a.getMonth(), a.getDate())) / 864e5);
-  card.innerHTML = `<div class="fl-opt-head"><h2 style="margin:0">My flights ${pill(all)}</h2>
+  card.innerHTML = `<div class="fl-opt-head"><h2 style="margin:0">${TRIP.id === "local" ? "My" : "Group"} flights ${pill(all)}</h2>
       <button type="button" class="fl-btn ghost" id="fl-change" aria-expanded="${flEditing}" title="${flEditing ? "Folds the flight search and the list of options away again." : "Opens the flight search, the screenshot reader and your list of options, to pick other flights."}">${flEditing ? "Hide flight search" : "Change my flights"}</button></div>
     <div class="cal-wrap"><div class="cal-row">${cells.join("")}</div></div>
     <p class="hint" style="margin:4px 0 0">Hover over a day, or tap it, for the details.</p>
@@ -1576,8 +1619,35 @@ function renderAll() {
 document.getElementById("trek-route").textContent = TREK.route;
 document.getElementById("trek-stats").innerHTML = TREK.stats.map(([b, t]) => `<div class="stat"><b>${b}</b>${t}</div>`).join("");
 
+/* ---------- Shared trips: hooks for cloud.js (sign-in and the database) ---------- */
+window.TripApp = {
+  tripId: TRIP_ID, treks: TREKS,
+  applyTrip(data, err) {   /* a shared trip arrived or changed */
+    if (!data) { TRIP.loaded = err ? "error" : false; renderAll(); return; }
+    if (data.trek !== TRIP.trek && TREKS[data.trek]) {   // another trek: the plan is built at load, so reload once
+      try { localStorage.setItem(TREK_HINT + TRIP.id, data.trek); } catch (e) {}
+      location.reload(); return;
+    }
+    TRIP.loaded = true; TRIP.name = data.name || ""; TRIP.start = data.start || null;
+    Object.keys(FL).forEach(k => delete FL[k]);
+    Object.assign(FL, data.flights || {});
+    FL.options = Array.isArray(FL.options) ? FL.options : [];
+    document.title = `${TRIP.name} · ${TREK.name}`;
+    loadStart(); renderAll();
+  },
+  setRole(role, user) {
+    ROLE = TRIP_ID === "local" ? "local" : role === "owner" || role === "admin" ? role : "viewer";
+    document.body.classList.toggle("ro", RO());
+    renderAll();
+  },
+  saveFailed(e) { alert(`Couldn't save the change: ${e.message}`); },
+  cloudReady() { document.getElementById("acct-btn").hidden = false; }
+};
+document.body.classList.toggle("ro", RO());
+
 loadStart();
 renderAll();
+import("./cloud.js").catch(() => {});   // offline or blocked: the page still works, without sign-in
 
 /* Always start at the top, on the Map tab */
 if ("scrollRestoration" in history) history.scrollRestoration = "manual";

@@ -1,0 +1,40 @@
+rules_version = '2';
+// Who can do what (enforced by Firebase, not by the page):
+//   anyone            reads trips (each trip page is shared by link)
+//   a trip's admins   change that trip's dates and travel details only
+//   the owner         creates, renames and deletes trips and chooses their admins
+// A trip's admin list lives apart from the trip, so it is never readable by the public.
+service cloud.firestore {
+  match /databases/{db}/documents {
+    function signedIn() { return request.auth != null; }
+    function isOwner() { return signedIn() && request.auth.uid == "OWNER_UID"; }
+    function adminsOf(tripId) { return /databases/$(db)/documents/tripAdmins/$(tripId); }
+    function isAdmin(tripId) {
+      return signedIn() && request.auth.token.email_verified == true
+        && exists(adminsOf(tripId))
+        && request.auth.token.email.lower() in get(adminsOf(tripId)).data.emails;
+    }
+    function validTrip(d) {
+      return d.keys().hasOnly(["trek", "name", "start", "flights", "details", "archived", "updatedAt"])
+        && d.trek is string && d.name is string && d.name.size() > 0 && d.name.size() <= 80
+        && (!("start" in d) || d.start == null || (d.start is string && d.start.matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")))
+        && (!("flights" in d) || d.flights is map)
+        && (!("details" in d) || d.details is map);
+    }
+
+    match /trips/{tripId} {
+      allow read: if true;
+      allow delete: if isOwner();
+      allow update: if validTrip(request.resource.data) && (isOwner() || (isAdmin(tripId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["start", "flights", "details", "updatedAt"])));
+      allow create: if isOwner() && validTrip(request.resource.data);
+    }
+
+    match /tripAdmins/{tripId} {
+      allow read: if isOwner() || isAdmin(tripId);
+      allow write: if isOwner()
+        && request.resource.data.keys().hasOnly(["emails"]) && request.resource.data.emails is list;
+      allow delete: if isOwner();
+    }
+  }
+}
