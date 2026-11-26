@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "test:rules": "firebase emulators:exec --only firestore --project demo-trek \"node --test tests/\"",
-    "deploy:rules": "firebase deploy --only firestore:rules"
+    "deploy:rules": "firebase deploy --only firestore:rules",
+    "emulators": "firebase emulators:start --only auth,firestore --project demo-trek"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^6.0.0",

@@ -7,11 +7,11 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-app.js";
 import {
   getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword,
-  createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, signOut
+  createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, signOut, connectAuthEmulator
 } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
-  doc, onSnapshot, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection, serverTimestamp
+  doc, onSnapshot, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection, serverTimestamp, connectFirestoreEmulator
 } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -25,10 +25,15 @@ const firebaseConfig = {
 /* The owner's Firebase user id (not secret; the same value is in firestore.rules) */
 const OWNER_UID = "UAvLjeR3A8MMG8nLMiy2990jO3E3";
 
+/* Testing on this computer only: localhost with ?emu uses the local Firebase emulators (npm run emulators), never the real data */
+const EMU = location.hostname === "localhost" && new URLSearchParams(location.search).has("emu");
+if (EMU) firebaseConfig.projectId = "demo-trek";
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 /* Trips opened once stay readable offline, on the trail */
 const db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+if (EMU) { connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true }); connectFirestoreEmulator(db, "127.0.0.1", 8080); }
 
 const App = window.TripApp;   // hooks from the page: tripId, applyTrip(data), setRole(role, user), onTrips(list)
 const tripRef = id => doc(db, "trips", id);
@@ -46,11 +51,18 @@ if (App.tripId !== "local") {
     App.applyTrip(snap.exists() ? snap.data() : null);
   }, err => App.applyTrip(null, err));
 }
+let saves = 0;
 async function saveTrip(trip) {
   if (App.tripId === "local" || (role !== "admin" && role !== "owner")) return;
+  const n = ++saves;
+  App.saveState("saving");
+  /* The write is kept on this device at once; the promise settles when the server has it */
+  const slow = setTimeout(() => { if (n === saves) App.saveState("offline"); }, 4000);
   try {
     await updateDoc(tripRef(App.tripId), { start: trip.start || null, flights: clean(trip.flights), updatedAt: serverTimestamp() });
-  } catch (e) { App.saveFailed?.(e); }
+    if (n === saves) App.saveState("saved");
+  } catch (e) { App.saveState("failed", e); }
+  finally { clearTimeout(slow); }
 }
 
 /* ---------- Who is signed in, and what they may do here ---------- */
@@ -63,10 +75,19 @@ async function roleFor(u) {
     return a.exists() && (a.data().emails || []).includes((u.email || "").toLowerCase()) ? "admin" : "viewer";
   } catch (e) { return "viewer"; }
 }
-onAuthStateChanged(auth, async u => {
-  user = u; role = await roleFor(u);
-  App.setRole(role, u && { email: u.email, uid: u.uid, verified: u.emailVerified });
+async function applyRole() {
+  role = await roleFor(user);
+  App.setRole(role, user && { email: user.email, uid: user.uid, verified: user.emailVerified });
   renderBox();
+}
+onAuthStateChanged(auth, u => { user = u; applyRole(); });
+/* Back on the tab: admin rights may have been given or removed, or the email confirmed, meanwhile */
+document.addEventListener("visibilitychange", async () => {
+  if (document.visibilityState !== "visible" || !user) return;
+  const before = role;
+  if (!user.emailVerified) { try { await user.reload(); if (user.emailVerified) await user.getIdToken(true); } catch (e) {} }
+  const now = await roleFor(user);
+  if (now !== before) applyRole();
 });
 
 /* ---------- Owner: trips and their admins ---------- */
@@ -96,7 +117,7 @@ const ROLE_TXT = { owner: "Owner", admin: "Trip admin", viewer: "" };
 const dlg = $("acct-dlg");
 let msg = "";
 
-function tripLink(id) { const u = new URL(location.href); u.search = `?trip=${encodeURIComponent(id)}`; u.hash = ""; return u.href; }
+function tripLink(id) { const u = new URL(location.href); u.search = `?trip=${encodeURIComponent(id)}${EMU ? "&emu" : ""}`; u.hash = ""; return u.href; }
 
 async function renderBox() {
   $("acct-btn").textContent = user ? (ROLE_TXT[role] ? `${ROLE_TXT[role]} ✓` : "Signed in") : "Sign in";

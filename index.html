@@ -96,6 +96,8 @@
   .mytrip p { margin: 6px 0 0; font-size: .85rem; opacity: .9; }
   .mytrip-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   .mytrip-head h2 { margin: 0; }
+  .save-state { margin-left: auto; font-size: .78rem; opacity: .85; }
+  .save-state.bad { color: #ffb3b9; opacity: 1; font-weight: 600; }
   .mytrip #acct-btn[hidden] { display: none; }
   /* Viewers of a shared trip: no editing controls */
   .ro #start, .ro #clear-start, .ro #fl-tools, .ro #fl-change, .ro label[for="start"] { display: none !important; }
@@ -282,7 +284,7 @@
     <div class="stat"><b>Tea houses</b>every night</div>
   </div>
   <div class="mytrip">
-    <div class="mytrip-head"><h2 id="trip-title">My trip</h2><button type="button" id="acct-btn" hidden>Sign in</button></div>
+    <div class="mytrip-head"><h2 id="trip-title">My trip</h2><span class="save-state" id="save-state" role="status"></span><button type="button" id="acct-btn" hidden>Sign in</button></div>
     <div class="mytrip-row">
       <label for="start">Start date (day 1)</label>
       <input type="date" id="start">
@@ -1108,8 +1110,8 @@ function flPlan() {
 
 function flResults() {
   const box = $f("fl-results");
-  $f("fl-yours").innerHTML = `Your flights${FL.options.length ? ` (${FL.options.length})` : ""}`
-    + `<span class="hint"> · saved in this browser, safest first</span>`;
+  $f("fl-yours").innerHTML = `${TRIP.id === "local" ? "Your flights" : "Flight options"}${FL.options.length ? ` (${FL.options.length})` : ""}`
+    + `<span class="hint"> · ${TRIP.id === "local" ? "saved in this browser" : "saved to the trip; viewers see only the chosen flights"}, safest first</span>`;
   renderMine();
   if (!FL.options.length) { box.innerHTML = `<p class="hint">No flights checked yet. Flights you add from a screenshot or the form above appear here.</p>`; return; }
   if (!START) { box.innerHTML = `<p class="fl-err">Pick the trek start date to check your ${plural(FL.options.length, "saved flight")}.</p>`; return; }
@@ -1128,7 +1130,7 @@ function flResults() {
         <span class="fl-opt-btns">${flKey(r.o) === FL.chosen
           ? `<span class="fl-chosen" title="These are your flights; they're shown on the trip calendar at the top of this tab.">✓ My flights</span>`
           : `<button type="button" class="fl-choose" data-choose="${r.i}" title="Makes these your flights: the tab then shows them on the trip calendar and folds the search tools away under Change my flights.">Choose these flights</button>`}
-        <button type="button" data-del="${r.i}" title="Removes this flight from the list. It isn't saved anywhere else.">Remove</button></span></div>
+        <button type="button" data-del="${r.i}" title="${TRIP.id === "local" ? "Removes this flight from the list. It isn't saved anywhere else." : "Removes this option from the trip's list."}">Remove</button></span></div>
       ${flEnd(r.o.takeoff, `✈ <b>Takes off</b> from ${r.o.from || "home"}`)}
       <div class="fl-leg">${pill(r.ja[0])}<b>Lands</b> in Kathmandu ${fmtShort(r.a)}, ${fmtTime(r.a)} (${dayLabel(dayNum(r.a))}): ${r.ja[1]}</div>
       <div class="fl-leg">${pill(r.jd[0])}<b>Leaves</b> Kathmandu ${fmtShort(r.d)}, ${fmtTime(r.d)} (${dayLabel(dayNum(r.d))}): ${r.jd[1]}</div>
@@ -1640,10 +1642,21 @@ window.TripApp = {
     document.body.classList.toggle("ro", RO());
     renderAll();
   },
-  saveFailed(e) { alert(`Couldn't save the change: ${e.message}`); },
+  /* Save status for admins: saving, saved, waiting for a connection, or failed */
+  saveState(state, e) {
+    const el = document.getElementById("save-state");
+    el.className = "save-state" + (state === "failed" ? " bad" : "");
+    el.textContent = { saving: "Saving…", saved: "Saved ✓", offline: "Saved on this device; syncs when online",
+      failed: `Not saved: ${e?.code === "permission-denied" ? "you can't edit this trip" : e?.message || "error"}` }[state] || "";
+    clearTimeout(this._t);
+    if (state === "saved") this._t = setTimeout(() => { el.textContent = ""; }, 3000);
+  },
   cloudReady() { document.getElementById("acct-btn").hidden = false; }
 };
 document.body.classList.toggle("ro", RO());
+if (TRIP_ID !== "local")   /* shared trip: the inputs' notes say where things are saved */
+  document.querySelectorAll("#fl-tools [title*='Saved in this browser only']").forEach(el =>
+    el.title = el.title.replace("Saved in this browser only.", "Saved to the trip."));
 
 loadStart();
 renderAll();

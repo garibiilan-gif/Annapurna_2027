@@ -1,6 +1,8 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "site", "runtimeExecutable": "python", "runtimeArgs": ["-m", "http.server", "8765", "--bind", "127.0.0.1"], "port": 8765 }
+    { "name": "site", "runtimeExecutable": "python", "runtimeArgs": ["-m", "http.server", "8765", "--bind", "127.0.0.1"], "port": 8765 },
+    { "name": "firestore-emulator", "url": "http://127.0.0.1:8080", "port": 8080 },
+    { "name": "auth-emulator", "url": "http://127.0.0.1:9099", "port": 9099 }
   ]
 }
