@@ -252,9 +252,9 @@
 <body>
 <header>
   <div class="hero-main">
-  <h1>Annapurna Circuit 2027</h1>
-  <p>Kathmandu → Besisahar → Thorung La → Jomsom → Pokhara</p>
-  <div class="stats">
+  <h1 id="trek-name">Annapurna Circuit 2027</h1>
+  <p id="trek-route">Kathmandu → Besisahar → Thorung La → Jomsom → Pokhara</p>
+  <div class="stats" id="trek-stats">
     <div class="stat"><b>14 days</b>itinerary</div>
     <div class="stat"><b>5,416 m</b>Thorung La</div>
     <div class="stat"><b>~160 km</b>on foot</div>
@@ -395,59 +395,213 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
-const DAYS = [
-  { d: 1, from: "Kathmandu", to: "Besisahar", alt: 760, lat: 28.2306, lng: 84.3778, dist: "175–190 km (drive)", type: "drive",
-    desc: "Drive to Besisahar, gateway to the circuit, through hills, river valleys, terraced fields and villages of Lamjung district.",
-    rem: "Private jeep, 6–8 h. Lodge in Besisahar." },
-  { d: 2, from: "Besisahar (760 m)", to: "Bahundanda", alt: 1310, lat: 28.3317, lng: 84.4106, dist: "15–17 km",
-    desc: "Trek along the Marsyangdi River past villages, terraced fields and suspension bridges up to the hilltop village of Bahundanda.",
-    rem: "5–6 h. About +550 m. Lodge in Bahundanda." },
-  { d: 3, from: "Bahundanda (1,310 m)", to: "Tal", alt: 1700, lat: 28.4686, lng: 84.372, dist: "15–17 km",
-    desc: "Up the Marsyangdi through forest, waterfalls and settlements, crossing suspension bridges to Tal, a riverside village under high cliffs.",
-    rem: "5–7 h. About +390 m. Lodge in Tal." },
-  { d: 4, from: "Tal (1,700 m)", to: "Dharapani", alt: 1860, lat: 28.5216, lng: 84.357, dist: "8–10 km",
-    desc: "Forest trails, rocky paths and villages with views of the Marsyangdi Valley up to Dharapani.",
-    rem: "Short day, 3–5 h. About +160 m. Lodge in Dharapani." },
-  { d: 5, from: "Dharapani (1,860 m)", to: "Chame", alt: 2670, lat: 28.552, lng: 84.242, dist: "15–16 km",
-    desc: "Pine forest and villages with the first big Himalayan views, up to Chame, administrative center of Manang district.",
-    rem: "5–6 h. About +810 m. Hot springs nearby. Lodge in Chame." },
-  { d: 6, from: "Chame (2,670 m)", to: "Upper Pisang", alt: 3300, lat: 28.6136, lng: 84.1394, dist: "13–15 km",
-    desc: "Pine forest and narrow valleys with views of Annapurna II, climbing to Upper Pisang and its traditional architecture.",
-    rem: "5–6 h. About +630 m. First night above 3,000 m. Lodge in Upper Pisang." },
-  { d: 7, from: "Upper Pisang (3,300 m)", to: "Manang", alt: 3540, lat: 28.6667, lng: 84.0167, dist: "15–17 km",
-    desc: "Upper trail via Ghyaru and Ngawal with views of the Annapurna range, monasteries and stone villages, ending in Manang.",
-    rem: "Long day, 6–8 h. The upper trail climbs above Manang before descending, which helps acclimatization. Lodge in Manang." },
-  { d: 8, from: "Manang (3,540 m)", to: "Manang", alt: 3540, lat: 28.6667, lng: 84.0167, dist: "Optional short hike", type: "rest",
-    desc: "Acclimatization day: explore the village and monasteries, hike to a viewpoint or visit Gangapurna Lake.",
-    rem: "Rest day. Walk high, sleep low. Lodge in Manang." },
-  { d: 9, from: "Manang (3,540 m)", to: "Yak Kharka", alt: 4050, lat: 28.712, lng: 83.9917, dist: "9–10 km",
-    desc: "Gradual climb through alpine country and yak pastures along the upper Marsyangdi Valley to Yak Kharka.",
-    rem: "3–4 h. About +510 m. First night above 4,000 m. Lodge in Yak Kharka." },
-  { d: 10, from: "Yak Kharka (4,050 m)", to: "Thorung Phedi", alt: 4540, lat: 28.783, lng: 83.956, dist: "7–8 km",
-    desc: "Rugged trail over rocky slopes to Thorung Phedi, base for the Thorung La crossing.",
-    rem: "4–5 h. About +490 m. Early night before the pass. Lodge in Thorung Phedi." },
-  { d: 11, from: "Thorung Phedi (4,540 m)", to: "Muktinath", alt: 3760, lat: 28.8167, lng: 83.8714, dist: "15–17 km", type: "pass",
-    pass: { name: "Thorung La", alt: 5416, lat: 28.7936, lng: 83.9378 },
-    desc: "Cross Thorung La (5,416 m), the highest point of the circuit, then a long descent to Muktinath, a pilgrimage site for Hindus and Buddhists.",
-    rem: "Hardest day, 8–10 h. Pre-dawn start. About +876 m up, then about −1,656 m down. Lodge in Muktinath." },
-  { d: 12, from: "Muktinath (3,760 m)", to: "Jomsom", alt: 2720, lat: 28.7811, lng: 83.7233, dist: "18–20 km",
-    desc: "Descend through Mustang landscapes and the dry, windswept Kali Gandaki Valley to Jomsom.",
-    rem: "4–6 h. About −1,040 m. Lodge in Jomsom." },
-  { d: 13, from: "Jomsom (2,720 m)", to: "Pokhara", alt: 820, lat: 28.2096, lng: 83.9856, dist: "Flight", type: "flight",
-    desc: "Early-morning flight to Pokhara with views of the Annapurna and Dhaulagiri ranges, then rest by the lake.",
-    rem: "20–25 min flight. Mountain flights depend on weather and can be delayed. Hotel in Pokhara." },
-  { d: 14, from: "Pokhara (820 m)", to: "Kathmandu", alt: 1400, lat: 27.7172, lng: 85.324, dist: "Flight", type: "flight",
-    desc: "Flight back to Kathmandu over the Himalayan foothills. End of the trek.",
-    rem: "25–30 min flight. Kathmandu accommodation and meals are not included in the package." }
-];
+/* ---------- Treks: the fixed plan (days, places, photos, transfers), shared by every trip that walks it.
+   A new trek is one more entry here; trips (groups with their own dates) point at a trek by id. ---------- */
+const TREKS = {};
+TREKS.annapurna = {
+  id: "annapurna",
+  name: "Annapurna Circuit",
+  route: "Kathmandu → Besisahar → Thorung La → Jomsom → Pokhara",
+  stats: [["14 days", "itinerary"], ["5,416 m", "Thorung La"], ["~160 km", "on foot"], ["Tea houses", "every night"]],
+  /* Where the trek starts and ends: the international airport city */
+  hub: { name: "Kathmandu", code: "KTM", airport: "Tribhuvan International, Kathmandu", alt: 1400, lat: 27.7172, lng: 85.324,
+    how: "🚙 Jeep to Besisahar · 6–8 h" },
+  /* Airfields used inside the trek, by place name */
+  airfields: { Jomsom: ["JMO", "Jomsom Airport"], Pokhara: ["PHH", "Pokhara International"] },
+  short: { "Thorung Phedi": "Phedi", "Muktinath": "Muktinath", "Yak Kharka": "Yak Kharka" },
+  /* Transfers drawn as dashed lines on the map. "hub" means the hub city, "day1" the end of day 1. */
+  transfers: [
+    { kind: "jeep", a: "hub", b: "day1", d: 1, label: "Day 1 jeep: Kathmandu → Besisahar", time: "6–8 h by private jeep", photo: "Jeep: Kathmandu → Besisahar", dest: "Besisahar" },
+    { kind: "flight", a: [28.7811, 83.7233], b: [28.2096, 83.9856], d: 13, label: "Day 13 flight: Jomsom → Pokhara", time: "20–25 min flight", photo: "Flight: Jomsom → Pokhara", dest: "Pokhara" },
+    { kind: "flight", a: [28.2096, 83.9856], b: "hub", d: 14, label: "Day 14 flight: Pokhara → Kathmandu", time: "25–30 min flight", t: .3, photo: "Flight: Pokhara → Kathmandu", dest: "Kathmandu" }
+  ],
+  mapView: [[28.5, 84.1], 9],
+  days: [
+    { d: 1, from: "Kathmandu", to: "Besisahar", alt: 760, lat: 28.2306, lng: 84.3778, dist: "175–190 km (drive)", type: "drive",
+      desc: "Drive to Besisahar, gateway to the circuit, through hills, river valleys, terraced fields and villages of Lamjung district.",
+      rem: "Private jeep, 6–8 h. Lodge in Besisahar." },
+    { d: 2, from: "Besisahar (760 m)", to: "Bahundanda", alt: 1310, lat: 28.3317, lng: 84.4106, dist: "15–17 km",
+      desc: "Trek along the Marsyangdi River past villages, terraced fields and suspension bridges up to the hilltop village of Bahundanda.",
+      rem: "5–6 h. About +550 m. Lodge in Bahundanda." },
+    { d: 3, from: "Bahundanda (1,310 m)", to: "Tal", alt: 1700, lat: 28.4686, lng: 84.372, dist: "15–17 km",
+      desc: "Up the Marsyangdi through forest, waterfalls and settlements, crossing suspension bridges to Tal, a riverside village under high cliffs.",
+      rem: "5–7 h. About +390 m. Lodge in Tal." },
+    { d: 4, from: "Tal (1,700 m)", to: "Dharapani", alt: 1860, lat: 28.5216, lng: 84.357, dist: "8–10 km",
+      desc: "Forest trails, rocky paths and villages with views of the Marsyangdi Valley up to Dharapani.",
+      rem: "Short day, 3–5 h. About +160 m. Lodge in Dharapani." },
+    { d: 5, from: "Dharapani (1,860 m)", to: "Chame", alt: 2670, lat: 28.552, lng: 84.242, dist: "15–16 km",
+      desc: "Pine forest and villages with the first big Himalayan views, up to Chame, administrative center of Manang district.",
+      rem: "5–6 h. About +810 m. Hot springs nearby. Lodge in Chame." },
+    { d: 6, from: "Chame (2,670 m)", to: "Upper Pisang", alt: 3300, lat: 28.6136, lng: 84.1394, dist: "13–15 km",
+      desc: "Pine forest and narrow valleys with views of Annapurna II, climbing to Upper Pisang and its traditional architecture.",
+      rem: "5–6 h. About +630 m. First night above 3,000 m. Lodge in Upper Pisang." },
+    { d: 7, from: "Upper Pisang (3,300 m)", to: "Manang", alt: 3540, lat: 28.6667, lng: 84.0167, dist: "15–17 km",
+      desc: "Upper trail via Ghyaru and Ngawal with views of the Annapurna range, monasteries and stone villages, ending in Manang.",
+      rem: "Long day, 6–8 h. The upper trail climbs above Manang before descending, which helps acclimatization. Lodge in Manang." },
+    { d: 8, from: "Manang (3,540 m)", to: "Manang", alt: 3540, lat: 28.6667, lng: 84.0167, dist: "Optional short hike", type: "rest",
+      desc: "Acclimatization day: explore the village and monasteries, hike to a viewpoint or visit Gangapurna Lake.",
+      rem: "Rest day. Walk high, sleep low. Lodge in Manang." },
+    { d: 9, from: "Manang (3,540 m)", to: "Yak Kharka", alt: 4050, lat: 28.712, lng: 83.9917, dist: "9–10 km",
+      desc: "Gradual climb through alpine country and yak pastures along the upper Marsyangdi Valley to Yak Kharka.",
+      rem: "3–4 h. About +510 m. First night above 4,000 m. Lodge in Yak Kharka." },
+    { d: 10, from: "Yak Kharka (4,050 m)", to: "Thorung Phedi", alt: 4540, lat: 28.783, lng: 83.956, dist: "7–8 km",
+      desc: "Rugged trail over rocky slopes to Thorung Phedi, base for the Thorung La crossing.",
+      rem: "4–5 h. About +490 m. Early night before the pass. Lodge in Thorung Phedi." },
+    { d: 11, from: "Thorung Phedi (4,540 m)", to: "Muktinath", alt: 3760, lat: 28.8167, lng: 83.8714, dist: "15–17 km", type: "pass",
+      pass: { name: "Thorung La", alt: 5416, lat: 28.7936, lng: 83.9378 },
+      desc: "Cross Thorung La (5,416 m), the highest point of the circuit, then a long descent to Muktinath, a pilgrimage site for Hindus and Buddhists.",
+      rem: "Hardest day, 8–10 h. Pre-dawn start. About +876 m up, then about −1,656 m down. Lodge in Muktinath." },
+    { d: 12, from: "Muktinath (3,760 m)", to: "Jomsom", alt: 2720, lat: 28.7811, lng: 83.7233, dist: "18–20 km",
+      desc: "Descend through Mustang landscapes and the dry, windswept Kali Gandaki Valley to Jomsom.",
+      rem: "4–6 h. About −1,040 m. Lodge in Jomsom." },
+    { d: 13, from: "Jomsom (2,720 m)", to: "Pokhara", alt: 820, lat: 28.2096, lng: 83.9856, dist: "Flight", type: "flight",
+      desc: "Early-morning flight to Pokhara with views of the Annapurna and Dhaulagiri ranges, then rest by the lake.",
+      rem: "20–25 min flight. Mountain flights depend on weather and can be delayed. Hotel in Pokhara." },
+    { d: 14, from: "Pokhara (820 m)", to: "Kathmandu", alt: 1400, lat: 27.7172, lng: 85.324, dist: "Flight", type: "flight",
+      desc: "Flight back to Kathmandu over the Himalayan foothills. End of the trek.",
+      rem: "25–30 min flight. Kathmandu accommodation and meals are not included in the package." }
+  ],
+  /* Place photos: Wikimedia Commons, credited in each popup */
+  photos: {
+ "Kathmandu": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c4/Kathmandu_Durbar_Square%2C_Shiva_Parvati_Temple%2C_Nepal_%28edit%29.jpg/500px-Kathmandu_Durbar_Square%2C_Shiva_Parvati_Temple%2C_Nepal_%28edit%29.jpg",
+  "by": "Vyacheslav Argenberg",
+  "lic": "CC BY 4.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Kathmandu_Durbar_Square,_Shiva_Parvati_Temple,_Nepal_(edit).jpg"
+ },
+ "Besisahar": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/65/Besi_Sahar.JPG/500px-Besi_Sahar.JPG",
+  "by": "Dmitry A. Mottl",
+  "lic": "CC BY-SA 3.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Besi_Sahar.JPG"
+ },
+ "Bahundanda": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f2/Bahundanda_village_-_Annapurna_Circuit%2C_Nepal_-_panoramio.jpg/500px-Bahundanda_village_-_Annapurna_Circuit%2C_Nepal_-_panoramio.jpg",
+  "by": "Sergey Ashmarin",
+  "lic": "CC BY-SA 3.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Bahundanda_village_-_Annapurna_Circuit,_Nepal_-_panoramio.jpg"
+ },
+ "Tal": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/34/Tal%2C_Manang%2C_Nepal.jpg/500px-Tal%2C_Manang%2C_Nepal.jpg",
+  "by": "Kondephy",
+  "lic": "CC BY-SA 4.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Tal,_Manang,_Nepal.jpg"
+ },
+ "Dharapani": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ad/Dharapani_village.jpg/500px-Dharapani_village.jpg",
+  "by": "Solundir",
+  "lic": "CC BY-SA 3.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Dharapani_village.jpg"
+ },
+ "Chame": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b8/Prayer_Wheels_-_Chame%2C_Nepal_-_panoramio.jpg/500px-Prayer_Wheels_-_Chame%2C_Nepal_-_panoramio.jpg",
+  "by": "Sergey Ashmarin",
+  "lic": "CC BY-SA 3.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Prayer_Wheels_-_Chame,_Nepal_-_panoramio.jpg"
+ },
+ "Upper Pisang": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/64/Upper_Pisang_-_Annapurna_Circuit%2C_Nepal_-_panoramio.jpg/500px-Upper_Pisang_-_Annapurna_Circuit%2C_Nepal_-_panoramio.jpg",
+  "by": "Sergey Ashmarin",
+  "lic": "CC BY-SA 3.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Upper_Pisang_-_Annapurna_Circuit,_Nepal_-_panoramio.jpg"
+ },
+ "Manang": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1a/Manang_Annapurna3_Gangapurna.jpg/500px-Manang_Annapurna3_Gangapurna.jpg",
+  "by": "Solundir",
+  "lic": "CC BY-SA 3.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Manang_Annapurna3_Gangapurna.jpg"
+ },
+ "Yak Kharka": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/40/Yak_Kharka_%284020_m%29_-_Annapurna_Circuit%2C_Nepal_-_panoramio.jpg/500px-Yak_Kharka_%284020_m%29_-_Annapurna_Circuit%2C_Nepal_-_panoramio.jpg",
+  "by": "Sergey Ashmarin",
+  "lic": "CC BY-SA 3.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Yak_Kharka_(4020_m)_-_Annapurna_Circuit,_Nepal_-_panoramio.jpg"
+ },
+ "Thorung Phedi": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/60/Way_to_Thorong_Phedi_-_Annapurna_Circuit%2C_Nepal_-_panoramio.jpg/500px-Way_to_Thorong_Phedi_-_Annapurna_Circuit%2C_Nepal_-_panoramio.jpg",
+  "by": "Sergey Ashmarin",
+  "lic": "CC BY-SA 3.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Way_to_Thorong_Phedi_-_Annapurna_Circuit,_Nepal_-_panoramio.jpg"
+ },
+ "Thorung La": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ef/Thorong_la.jpg/500px-Thorong_la.jpg",
+  "by": "Kondephy",
+  "lic": "CC BY-SA 4.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Thorong_la.jpg"
+ },
+ "Muktinath": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fa/Muktinath_Temple_%281%29.jpg/500px-Muktinath_Temple_%281%29.jpg",
+  "by": "Faj2323",
+  "lic": "CC BY-SA 4.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Muktinath_Temple_(1).jpg"
+ },
+ "Jomsom": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/cb/Mustang_jomsom.jpg/500px-Mustang_jomsom.jpg",
+  "by": "Utsab Raj Giri",
+  "lic": "CC BY-SA 4.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Mustang_jomsom.jpg"
+ },
+ "Pokhara": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0c/Phewa_Lake_of_Pokhara_city.jpg/500px-Phewa_Lake_of_Pokhara_city.jpg",
+  "by": "Iamavinashk",
+  "lic": "CC BY-SA 4.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Phewa_Lake_of_Pokhara_city.jpg"
+ }
+},
+  /* Transport photos: Wikimedia Commons, credited on each card */
+  legPhotos: {
+ "Jeep: Kathmandu → Besisahar": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e9/Jeep_%28from_Ghasa_to_Tatopani%29_%284523584897%29.jpg/500px-Jeep_%28from_Ghasa_to_Tatopani%29_%284523584897%29.jpg",
+  "by": "Greg Willis",
+  "lic": "CC BY-SA 2.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Jeep_(from_Ghasa_to_Tatopani)_(4523584897).jpg"
+ },
+ "Flight: Jomsom → Pokhara": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e5/Tara_Air_Twin_Otter_in_Jomsom.jpg/500px-Tara_Air_Twin_Otter_in_Jomsom.jpg",
+  "by": "Solundir",
+  "lic": "CC BY-SA 3.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Tara_Air_Twin_Otter_in_Jomsom.jpg"
+ },
+ "Flight: Pokhara → Kathmandu": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/79/Buddha_Air_in_Pokhara_Airport.jpg/500px-Buddha_Air_in_Pokhara_Airport.jpg",
+  "by": "Gaurav Dhwaj Khadka",
+  "lic": "CC BY-SA 4.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Buddha_Air_in_Pokhara_Airport.jpg"
+ }
+},
+};
+
+/* ---------- Trips: one group walking a trek, with its own dates and travel details.
+   For now the only trip is the one kept in this browser ("local"), stored under the same keys as before,
+   so nothing already saved is lost. A shared database replaces TripStore in the next step. ---------- */
+const TripStore = {
+  START_KEY: "annapurna-start",
+  FLIGHTS_KEY: "annapurna-flights",
+  load(id) {
+    const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+    let flights;
+    try { flights = JSON.parse(get(this.FLIGHTS_KEY)) || {}; } catch (e) { flights = {}; }
+    return { id, trek: "annapurna", name: "My trip", start: get(this.START_KEY), flights };
+  },
+  save(trip) {
+    try {
+      trip.start ? localStorage.setItem(this.START_KEY, trip.start) : localStorage.removeItem(this.START_KEY);
+      localStorage.setItem(this.FLIGHTS_KEY, JSON.stringify(trip.flights));
+    } catch (e) {}
+  }
+};
+const TRIP = TripStore.load("local");
+const TREK = TREKS[TRIP.trek] || TREKS.annapurna;
+const HUB = TREK.hub;
+const DAYS = TREK.days, PHOTOS = TREK.photos, LEG_PHOTOS = TREK.legPhotos;
+const LAST = DAYS.length;   // the last trek day
 const fmt = n => n.toLocaleString("en-US");
 const tag = t => t === "rest" ? '<span class="tag rest">Rest</span>'
   : t === "flight" ? '<span class="tag flight">Flight</span>'
   : t === "pass" ? '<span class="tag pass">Pass</span>'
   : t === "drive" ? '<span class="tag flight">Jeep</span>' : "";
 
-/* ---------- My trip: start date (per viewer, and carried in the shared link) ---------- */
-const TRIP_KEY = "annapurna-start";
+/* ---------- My trip: start date (from the trip; a ?start= link overrides it for viewing) ---------- */
 let START = null;
 const parseISO = s => {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || "");
@@ -460,13 +614,13 @@ const dayDate = d => START && new Date(START.getFullYear(), START.getMonth(), ST
 const fmtDate = dt => dt.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 const dateOf = d => START ? fmtDate(dayDate(d)) : "";
 function loadStart() {
-  let s = new URLSearchParams(location.search).get("start");
-  if (!parseISO(s)) { try { s = localStorage.getItem(TRIP_KEY); } catch (e) { s = null; } }
-  START = parseISO(s);
+  const s = new URLSearchParams(location.search).get("start");
+  START = parseISO(parseISO(s) ? s : TRIP.start);
 }
 function saveStart(s) {
   START = parseISO(s);
-  try { START ? localStorage.setItem(TRIP_KEY, toISO(START)) : localStorage.removeItem(TRIP_KEY); } catch (e) {}
+  TRIP.start = START ? toISO(START) : null;
+  TripStore.save(TRIP);
   try {  /* keep the date in the address so a shared link carries it */
     const url = new URL(location.href);
     START ? url.searchParams.set("start", toISO(START)) : url.searchParams.delete("start");
@@ -489,10 +643,10 @@ const howOf = x => x.type === "flight" ? `✈ ${x.rem.split(".")[0]}`
 const POINTS = [];          // altitude chart order
 const PLACES = {};          // one per map pin
 (function build() {
-  let prevAlt = 1400, prevName = "Kathmandu";
-  POINTS.push({ x: 0, label: "KTM", name: "Kathmandu", alt: 1400, day: 1,
-    visits: [{ d: 1, label: "Start of day 1" }], how: "🚙 Jeep to Besisahar · 6–8 h" });
-  PLACES.Kathmandu = { name: "Kathmandu", alt: 1400, day: 1, lat: 27.7172, lng: 85.324,
+  let prevAlt = HUB.alt, prevName = HUB.name;
+  POINTS.push({ x: 0, label: HUB.code, name: HUB.name, alt: HUB.alt, day: 1,
+    visits: [{ d: 1, label: "Start of day 1" }], how: HUB.how });
+  PLACES[HUB.name] = { name: HUB.name, alt: HUB.alt, day: 1, lat: HUB.lat, lng: HUB.lng,
     visits: [{ d: 1, label: "Start of day 1" }] };
   DAYS.forEach(x => {
     if (x.pass) {
@@ -597,124 +751,16 @@ function renderTrip() {
 startInput.addEventListener("change", () => saveStart(startInput.value));
 clearBtn.addEventListener("click", () => saveStart(""));
 
-/* Place photos: Wikimedia Commons, credited in each popup */
-const PHOTOS = {
- "Kathmandu": {
-  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c4/Kathmandu_Durbar_Square%2C_Shiva_Parvati_Temple%2C_Nepal_%28edit%29.jpg/500px-Kathmandu_Durbar_Square%2C_Shiva_Parvati_Temple%2C_Nepal_%28edit%29.jpg",
-  "by": "Vyacheslav Argenberg",
-  "lic": "CC BY 4.0",
-  "page": "https://commons.wikimedia.org/wiki/File:Kathmandu_Durbar_Square,_Shiva_Parvati_Temple,_Nepal_(edit).jpg"
- },
- "Besisahar": {
-  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/65/Besi_Sahar.JPG/500px-Besi_Sahar.JPG",
-  "by": "Dmitry A. Mottl",
-  "lic": "CC BY-SA 3.0",
-  "page": "https://commons.wikimedia.org/wiki/File:Besi_Sahar.JPG"
- },
- "Bahundanda": {
-  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f2/Bahundanda_village_-_Annapurna_Circuit%2C_Nepal_-_panoramio.jpg/500px-Bahundanda_village_-_Annapurna_Circuit%2C_Nepal_-_panoramio.jpg",
-  "by": "Sergey Ashmarin",
-  "lic": "CC BY-SA 3.0",
-  "page": "https://commons.wikimedia.org/wiki/File:Bahundanda_village_-_Annapurna_Circuit,_Nepal_-_panoramio.jpg"
- },
- "Tal": {
-  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/34/Tal%2C_Manang%2C_Nepal.jpg/500px-Tal%2C_Manang%2C_Nepal.jpg",
-  "by": "Kondephy",
-  "lic": "CC BY-SA 4.0",
-  "page": "https://commons.wikimedia.org/wiki/File:Tal,_Manang,_Nepal.jpg"
- },
- "Dharapani": {
-  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ad/Dharapani_village.jpg/500px-Dharapani_village.jpg",
-  "by": "Solundir",
-  "lic": "CC BY-SA 3.0",
-  "page": "https://commons.wikimedia.org/wiki/File:Dharapani_village.jpg"
- },
- "Chame": {
-  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b8/Prayer_Wheels_-_Chame%2C_Nepal_-_panoramio.jpg/500px-Prayer_Wheels_-_Chame%2C_Nepal_-_panoramio.jpg",
-  "by": "Sergey Ashmarin",
-  "lic": "CC BY-SA 3.0",
-  "page": "https://commons.wikimedia.org/wiki/File:Prayer_Wheels_-_Chame,_Nepal_-_panoramio.jpg"
- },
- "Upper Pisang": {
-  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/64/Upper_Pisang_-_Annapurna_Circuit%2C_Nepal_-_panoramio.jpg/500px-Upper_Pisang_-_Annapurna_Circuit%2C_Nepal_-_panoramio.jpg",
-  "by": "Sergey Ashmarin",
-  "lic": "CC BY-SA 3.0",
-  "page": "https://commons.wikimedia.org/wiki/File:Upper_Pisang_-_Annapurna_Circuit,_Nepal_-_panoramio.jpg"
- },
- "Manang": {
-  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1a/Manang_Annapurna3_Gangapurna.jpg/500px-Manang_Annapurna3_Gangapurna.jpg",
-  "by": "Solundir",
-  "lic": "CC BY-SA 3.0",
-  "page": "https://commons.wikimedia.org/wiki/File:Manang_Annapurna3_Gangapurna.jpg"
- },
- "Yak Kharka": {
-  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/40/Yak_Kharka_%284020_m%29_-_Annapurna_Circuit%2C_Nepal_-_panoramio.jpg/500px-Yak_Kharka_%284020_m%29_-_Annapurna_Circuit%2C_Nepal_-_panoramio.jpg",
-  "by": "Sergey Ashmarin",
-  "lic": "CC BY-SA 3.0",
-  "page": "https://commons.wikimedia.org/wiki/File:Yak_Kharka_(4020_m)_-_Annapurna_Circuit,_Nepal_-_panoramio.jpg"
- },
- "Thorung Phedi": {
-  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/60/Way_to_Thorong_Phedi_-_Annapurna_Circuit%2C_Nepal_-_panoramio.jpg/500px-Way_to_Thorong_Phedi_-_Annapurna_Circuit%2C_Nepal_-_panoramio.jpg",
-  "by": "Sergey Ashmarin",
-  "lic": "CC BY-SA 3.0",
-  "page": "https://commons.wikimedia.org/wiki/File:Way_to_Thorong_Phedi_-_Annapurna_Circuit,_Nepal_-_panoramio.jpg"
- },
- "Thorung La": {
-  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ef/Thorong_la.jpg/500px-Thorong_la.jpg",
-  "by": "Kondephy",
-  "lic": "CC BY-SA 4.0",
-  "page": "https://commons.wikimedia.org/wiki/File:Thorong_la.jpg"
- },
- "Muktinath": {
-  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fa/Muktinath_Temple_%281%29.jpg/500px-Muktinath_Temple_%281%29.jpg",
-  "by": "Faj2323",
-  "lic": "CC BY-SA 4.0",
-  "page": "https://commons.wikimedia.org/wiki/File:Muktinath_Temple_(1).jpg"
- },
- "Jomsom": {
-  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/cb/Mustang_jomsom.jpg/500px-Mustang_jomsom.jpg",
-  "by": "Utsab Raj Giri",
-  "lic": "CC BY-SA 4.0",
-  "page": "https://commons.wikimedia.org/wiki/File:Mustang_jomsom.jpg"
- },
- "Pokhara": {
-  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0c/Phewa_Lake_of_Pokhara_city.jpg/500px-Phewa_Lake_of_Pokhara_city.jpg",
-  "by": "Iamavinashk",
-  "lic": "CC BY-SA 4.0",
-  "page": "https://commons.wikimedia.org/wiki/File:Phewa_Lake_of_Pokhara_city.jpg"
- }
-};
-/* Transport photos: Wikimedia Commons, credited on each card */
-const LEG_PHOTOS = {
- "Jeep: Kathmandu → Besisahar": {
-  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e9/Jeep_%28from_Ghasa_to_Tatopani%29_%284523584897%29.jpg/500px-Jeep_%28from_Ghasa_to_Tatopani%29_%284523584897%29.jpg",
-  "by": "Greg Willis",
-  "lic": "CC BY-SA 2.0",
-  "page": "https://commons.wikimedia.org/wiki/File:Jeep_(from_Ghasa_to_Tatopani)_(4523584897).jpg"
- },
- "Flight: Jomsom → Pokhara": {
-  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e5/Tara_Air_Twin_Otter_in_Jomsom.jpg/500px-Tara_Air_Twin_Otter_in_Jomsom.jpg",
-  "by": "Solundir",
-  "lic": "CC BY-SA 3.0",
-  "page": "https://commons.wikimedia.org/wiki/File:Tara_Air_Twin_Otter_in_Jomsom.jpg"
- },
- "Flight: Pokhara → Kathmandu": {
-  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/79/Buddha_Air_in_Pokhara_Airport.jpg/500px-Buddha_Air_in_Pokhara_Airport.jpg",
-  "by": "Gaurav Dhwaj Khadka",
-  "lic": "CC BY-SA 4.0",
-  "page": "https://commons.wikimedia.org/wiki/File:Buddha_Air_in_Pokhara_Airport.jpg"
- }
-};
 
 /* ---------- Map ---------- */
 try {
   window.map = L.map("map", { scrollWheelZoom: true });
   /* Start with a view right away: Leaflet only re-measures its box once it has one */
-  map.setView([28.5, 84.1], 9, { animate: false });
+  map.setView(TREK.mapView[0], TREK.mapView[1], { animate: false });
   L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
     maxZoom: 15, attribution: "© OpenStreetMap contributors, SRTM | © OpenTopoMap"
   }).addTo(map);
-  const ktm = [27.7172, 85.324];
+  const at = p => p === "hub" ? [HUB.lat, HUB.lng] : p === "day1" ? [DAYS[0].lat, DAYS[0].lng] : p;
   const trekLine = DAYS.filter(x => x.type !== "flight" && x.type !== "drive" && x.type !== "rest")
     .flatMap(x => x.pass ? [[x.pass.lat, x.pass.lng], [x.lat, x.lng]] : [[x.lat, x.lng]]);
   trekLine.unshift([DAYS[0].lat, DAYS[0].lng]);
@@ -731,17 +777,16 @@ try {
     .addTo(map);
   const tipTop = { direction: "top", offset: [0, -12] };
   /* Jeep: same treatment as the flights, in teal with a jeep badge */
-  const jeep = { a: ktm, b: [DAYS[0].lat, DAYS[0].lng], d: 1, label: "Day 1 jeep: Kathmandu → Besisahar", time: "6–8 h by private jeep", photo: "Jeep: Kathmandu → Besisahar", dest: "Besisahar" };
-  L.polyline([jeep.a, jeep.b], { color: "#fff", weight: 8, opacity: .9 }).addTo(map);
-  legLayer(L.polyline([jeep.a, jeep.b], { color: "#0e7490", weight: 4, dashArray: "12 8" }), jeep, { sticky: true });
-  legLayer(L.marker([jeep.a[0] + (jeep.b[0] - jeep.a[0]) * .3, jeep.a[1] + (jeep.b[1] - jeep.a[1]) * .3], { keyboard: false,
-    icon: L.divIcon({ className: "plane-badge jeep-badge", html: "🚙", iconSize: [26, 26], iconAnchor: [13, 13] }) }), jeep, tipTop);
+  const legs = TREK.transfers.map(f => ({ ...f, a: at(f.a), b: at(f.b) }));
+  legs.filter(f => f.kind === "jeep").forEach(jeep => {
+    L.polyline([jeep.a, jeep.b], { color: "#fff", weight: 8, opacity: .9 }).addTo(map);
+    legLayer(L.polyline([jeep.a, jeep.b], { color: "#0e7490", weight: 4, dashArray: "12 8" }), jeep, { sticky: true });
+    legLayer(L.marker([jeep.a[0] + (jeep.b[0] - jeep.a[0]) * .3, jeep.a[1] + (jeep.b[1] - jeep.a[1]) * .3], { keyboard: false,
+      icon: L.divIcon({ className: "plane-badge jeep-badge", html: "🚙", iconSize: [26, 26], iconAnchor: [13, 13] }) }), jeep, tipTop);
+  });
   L.polyline(trekLine, { color: "#c2410c", weight: 4 }).addTo(map);
   /* Flights: white casing under a bold dashed line, plus a plane badge on each leg */
-  const flights = [
-    { a: [28.7811, 83.7233], b: [28.2096, 83.9856], d: 13, label: "Day 13 flight: Jomsom → Pokhara", time: "20–25 min flight", photo: "Flight: Jomsom → Pokhara", dest: "Pokhara" },
-    { a: [28.2096, 83.9856], b: ktm, d: 14, label: "Day 14 flight: Pokhara → Kathmandu", time: "25–30 min flight", t: .3, photo: "Flight: Pokhara → Kathmandu", dest: "Kathmandu" }
-  ];
+  const flights = legs.filter(f => f.kind === "flight");
   const planeIcon = L.divIcon({ className: "plane-badge", html: "✈", iconSize: [26, 26], iconAnchor: [13, 13] });
   flights.forEach(f => {
     L.polyline([f.a, f.b], { color: "#fff", weight: 8, opacity: .9 }).addTo(map);
@@ -751,7 +796,7 @@ try {
   });
   /* Place pins: hover shows the card, click opens the same card with links */
   Object.values(PLACES).forEach(pt => {
-    const color = pt.name === "Kathmandu" ? "#1d3b53" : pt.pass ? "#e11d48" : pt.type === "flight" ? "#6b5bb5" : "#c2410c";
+    const color = pt.name === HUB.name ? "#1d3b53" : pt.pass ? "#e11d48" : pt.type === "flight" ? "#6b5bb5" : "#c2410c";
     PINS[pt.name] = L.circleMarker([pt.lat, pt.lng], {
         radius: 8, color: "#fff", weight: 2, fillColor: color, fillOpacity: 1 })
       .bindTooltip(() => placeCard(pt), { direction: "top", offset: [0, -8], opacity: 1, className: "place-tip" })
@@ -926,10 +971,9 @@ async function renderWeather() {
 /* Rules, in Kathmandu time. Day 1 is the early-morning jeep, day 14 the flight back from Pokhara.
    Landing:   safe up to the end of day -1 (a full day in Kathmandu), tight on day 0 before 18:00, otherwise unsafe.
    Going home: safe from day 16 (two spare days for a weather-delayed Jomsom flight), tight on day 15 from 18:00, otherwise unsafe. */
-const FL_KEY = "annapurna-flights";
-const FL = (() => { try { return JSON.parse(localStorage.getItem(FL_KEY)) || {}; } catch (e) { return {}; } })();
+const FL = TRIP.flights;
 FL.options = Array.isArray(FL.options) ? FL.options : [];
-const flSave = () => { try { localStorage.setItem(FL_KEY, JSON.stringify(FL)); } catch (e) {} };
+const flSave = () => TripStore.save(TRIP);
 const $f = id => document.getElementById(id);
 const FL_CUTOFF = 18;   // hour that separates "tight" from "unsafe" on day 0 and day 15
 const VERDICT = { safe: ["Safe", "#2f7d5b"], tight: ["Tight", "#b7790f"], bad: ["Unsafe", "#b4232f"] };
@@ -1063,10 +1107,10 @@ let CAL_INFO = {};       // detail card HTML for each day on the bar, by trek da
 /* Airports: names from the airport list on this tab, plus the ones in Nepal used by the trek */
 const AIRPORTS = Object.assign(
   Object.fromEntries([...document.querySelectorAll("#fl-airports option")].map(op => [op.value, op.textContent])),
-  { KTM: "Tribhuvan International, Kathmandu", JMO: "Jomsom Airport", PHH: "Pokhara International" });
+  { [HUB.code]: HUB.airport }, Object.fromEntries(Object.values(TREK.airfields)));
 const airportName = c => AIRPORTS[c] ? `${AIRPORTS[c]} (${c})` : c === "Home" ? "your home airport" : c;
 /* The trek's two mountain flights: Jomsom → Pokhara (day 13), Pokhara → Kathmandu (day 14) */
-const PLACE_AP = { Jomsom: "JMO", Pokhara: "PHH", Kathmandu: "KTM" };
+const PLACE_AP = { [HUB.name]: HUB.code, ...Object.fromEntries(Object.entries(TREK.airfields).map(([k, v]) => [k, v[0]])) };
 const trekAirfields = x => [PLACE_AP[x.from.split(" (")[0]], PLACE_AP[x.to]];
 /* Detail lines for a trek day, from the day-by-day plan */
 function trekInfo(x) {
@@ -1078,7 +1122,7 @@ function trekInfo(x) {
   lines.push(x.desc, `<span class="hint">${x.rem}</span>`);
   return lines;
 }
-const SHORT = { "Thorung Phedi": "Phedi", "Muktinath": "Muktinath", "Yak Kharka": "Yak Kharka" };
+const SHORT = TREK.short;
 function renderMine() {
   const card = $f("fl-mine"), tools = $f("fl-tools");
   const o = FL.options.find(x => flKey(x) === FL.chosen);
@@ -1528,6 +1572,10 @@ function renderAll() {
   if (window.map) { map.closePopup(); map.eachLayer(l => l.closeTooltip && l.closeTooltip()); }
   if (window.closeChartTip) closeChartTip();
 }
+/* Header from the trek (the HTML holds the same text, for link previews and before the script runs) */
+document.getElementById("trek-route").textContent = TREK.route;
+document.getElementById("trek-stats").innerHTML = TREK.stats.map(([b, t]) => `<div class="stat"><b>${b}</b>${t}</div>`).join("");
+
 loadStart();
 renderAll();
 
