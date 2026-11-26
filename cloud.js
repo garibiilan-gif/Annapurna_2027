@@ -23,7 +23,7 @@ const firebaseConfig = {
   appId: "1:304766019578:web:ec1088476bf41045026643"
 };
 /* The owner's Firebase user id (not secret; the same value is in firestore.rules) */
-const OWNER_UID = "OWNER_UID";
+const OWNER_UID = "UAvLjeR3A8MMG8nLMiy2990jO3E3";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
