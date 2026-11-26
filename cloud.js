@@ -160,6 +160,8 @@ const authErr = e => ({
   "auth/invalid-credential": "Wrong email or password.", "auth/wrong-password": "Wrong email or password.",
   "auth/user-not-found": "No account with this email. Use Create account.", "auth/email-already-in-use": "This email already has an account. Sign in instead.",
   "auth/weak-password": "Choose a password of at least 6 characters.", "auth/invalid-email": "That doesn't look like an email address.",
+  "auth/unauthorized-domain": `Sign-in isn't allowed from ${location.hostname} yet. Use http://localhost:8765/ on this computer, or add ${location.hostname} under Firebase → Authentication → Settings → Authorized domains.`,
+  "auth/operation-not-allowed": "This sign-in method is off. Turn it on in Firebase → Authentication → Sign-in method.",
   "auth/popup-closed-by-user": "The Google window was closed before signing in.", "auth/too-many-requests": "Too many tries. Wait a few minutes and try again."
 }[e.code] || e.message);
 
