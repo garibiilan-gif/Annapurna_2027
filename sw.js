@@ -1,5 +1,5 @@
 // Offline cache: the app itself up front, map tiles as they are viewed.
-const APP = "annapurna-app-v25";
+const APP = "annapurna-app-v26";
 const TILES = "annapurna-tiles-v1";
 const SHELL = [
   "./", "index.html", "cloud.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png",

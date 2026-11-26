@@ -101,6 +101,17 @@
     text-shadow: 0 1px 3px rgba(0,0,0,.45); }
   .save-state { margin-left: auto; font-size: .78rem; opacity: .85; }
   .save-state.bad { color: #ffb3b9; opacity: 1; font-weight: 600; }
+  /* Dates typed and shown as dd/mm/yyyy; the browser's own calendar opens from the 📅 button */
+  .dmy-wrap { position: relative; display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+  .fl-grid .dmy-wrap { display: flex; }
+  .dmy-wrap .dmy { width: 8.2em; flex: 1 1 auto; min-width: 0; }
+  .dmy-cal { font: inherit; font-size: .95rem !important; line-height: 1; padding: 5px 7px !important; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--line); background: none; }
+  .mytrip .dmy-cal { border-color: rgba(255,255,255,.4); }
+  .ro .dmy-wrap[data-for="start"] { display: none !important; }
+  .dmy-cal:disabled { opacity: .45; cursor: default; }
+  .dmy-wrap .dmy-native { position: absolute; left: 0; bottom: 0; width: 1px !important; height: 1px !important;
+    padding: 0 !important; border: 0 !important; opacity: 0; pointer-events: none; }
   .mytrip #acct-btn[hidden] { display: none; }
   /* Viewers of a shared trip: no editing controls */
   .ro #start, .ro #clear-start, .ro #fl-tools, .ro #fl-change, .ro label[for="start"] { display: none !important; }
@@ -272,6 +283,13 @@
   .fl-cand-btns { display: flex; gap: 6px; align-items: flex-end; flex-wrap: wrap; }
   .fl-rm { font: inherit; font-size: .82rem; border: 1px solid var(--line); background: none; color: var(--muted);
     border-radius: 8px; padding: 7px 10px; cursor: pointer; }
+  /* Hotels */
+  .ht-lines > div { font-size: .9rem; margin-top: 5px; }
+  .ht-lines a { color: var(--accent); }
+  .ht-form { margin-top: 10px; }
+  .ht-form .wide { grid-column: 1 / -1; }
+  .ht-form label.ht-check { flex-direction: row; align-items: center; gap: 6px; font-size: .9rem; text-transform: none; letter-spacing: 0; color: var(--ink); }
+  .ht-btns { margin-top: 8px; }
   .fl-raw { white-space: pre-wrap; font-size: .75rem; max-height: 220px; overflow: auto; background: var(--card); padding: 8px; border-radius: 8px; }
 </style>
 </head>
@@ -304,6 +322,7 @@
   <button role="tab" aria-selected="false" data-tab="plan">Day by day</button>
   <button role="tab" aria-selected="false" data-tab="profile">Altitude</button>
   <button role="tab" aria-selected="false" data-tab="flights" title="Find international flights to Kathmandu and check them against the trek dates">Flights</button>
+  <button role="tab" aria-selected="false" data-tab="hotels" title="Hotels for the nights off the trail: Kathmandu before and after the trek, and Pokhara">Hotels</button>
 </nav>
 
 <main>
@@ -415,6 +434,15 @@
     </div>
     </div>
   </section>
+
+  <section id="tab-hotels" hidden>
+    <div class="card fl-card">
+      <h2 style="margin:0">Hotels</h2>
+      <p class="hint" id="ht-intro"></p>
+      <div id="ht-list"></div>
+      <div class="fl-links" id="ht-more"></div>
+    </div>
+  </section>
 </main>
 
 <dialog id="acct-dlg" aria-label="Account">
@@ -439,6 +467,16 @@ TREKS.annapurna = {
     how: "🚙 Jeep to Besisahar · 6–8 h" },
   /* Airfields used inside the trek, by place name */
   airfields: { Jomsom: ["JMO", "Jomsom Airport"], Pokhara: ["PHH", "Pokhara International"] },
+  /* Nights off the trail that need a hotel. from/to are trek days, or "land"/"leave" for the chosen flights.
+     Nights on the trail are tea houses, found on the way. */
+  stays: [
+    { slot: "before", place: "Kathmandu", area: "Thamel, Kathmandu", from: "land", to: 1,
+      why: "From landing until the early jeep on day 1. Thamel is the trekkers' quarter: gear shops and the permit offices are close." },
+    { slot: "pokhara", place: "Pokhara", area: "Lakeside, Pokhara", from: 13, to: 14,
+      why: "After the Jomsom flight on day 13. The package lists a hotel in Pokhara: add its name here when the agency sends it." },
+    { slot: "after", place: "Kathmandu", area: "Thamel, Kathmandu", from: 14, to: "leave",
+      why: "From the Pokhara flight on day 14 until the flight home, spare days included. Not part of the package." }
+  ],
   short: { "Thorung Phedi": "Phedi", "Muktinath": "Muktinath", "Yak Kharka": "Yak Kharka" },
   /* Transfers drawn as dashed lines on the map. "hub" means the hub city, "day1" the end of day 1. */
   transfers: [
@@ -610,21 +648,22 @@ const TREK_HINT = "trek-of-";   // remembers a shared trip's trek, so the right 
 const TripStore = {
   START_KEY: "annapurna-start",
   FLIGHTS_KEY: "annapurna-flights",
+  DETAILS_KEY: "annapurna-details",   // hotels and other travel details
   load(id) {
     if (id !== "local") {   // shared trip: filled in by cloud.js when it arrives
       let trek = null; try { trek = localStorage.getItem(TREK_HINT + id); } catch (e) {}
-      return { id, trek: TREKS[trek] ? trek : "annapurna", name: "", start: null, flights: {} };
+      return { id, trek: TREKS[trek] ? trek : "annapurna", name: "", start: null, flights: {}, details: {} };
     }
     const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
-    let flights;
-    try { flights = JSON.parse(get(this.FLIGHTS_KEY)) || {}; } catch (e) { flights = {}; }
-    return { id, trek: "annapurna", name: "My trip", start: get(this.START_KEY), flights };
+    const json = k => { try { return JSON.parse(get(k)) || {}; } catch (e) { return {}; } };
+    return { id, trek: "annapurna", name: "My trip", start: get(this.START_KEY), flights: json(this.FLIGHTS_KEY), details: json(this.DETAILS_KEY) };
   },
   save(trip) {
     if (trip.id !== "local") { window.TripApp.cloud?.saveTrip(trip); return; }
     try {
       trip.start ? localStorage.setItem(this.START_KEY, trip.start) : localStorage.removeItem(this.START_KEY);
       localStorage.setItem(this.FLIGHTS_KEY, JSON.stringify(trip.flights));
+      localStorage.setItem(this.DETAILS_KEY, JSON.stringify(trip.details));
     } catch (e) {}
   }
 };
@@ -728,7 +767,7 @@ function placeCard(pt, { popup = false } = {}) {
 const tabs = document.querySelectorAll("nav button");
 function show(name) {
   tabs.forEach(b => b.setAttribute("aria-selected", b.dataset.tab === name));
-  ["map", "plan", "profile", "flights"].forEach(t => document.getElementById("tab-" + t).hidden = t !== name);
+  ["map", "plan", "profile", "flights", "hotels"].forEach(t => document.getElementById("tab-" + t).hidden = t !== name);
   if (name === "map" && window.map) setTimeout(() => map.invalidateSize(), 50);
 }
 tabs.forEach(b => b.addEventListener("click", () => show(b.dataset.tab)));
@@ -1211,6 +1250,8 @@ function renderMine() {
       label = x.type === "flight" ? `✈ ${fa[0]} → ${fa[1]}` : x.type === "drive" ? `🚙 ${x.to}` : x.pass ? `⛰ ${x.pass.name.replace(/ \(.*/, "")}` : SHORT[x.to] || x.to; }
     const mo = dt.getMonth() !== month ? dt.toLocaleDateString("en-GB", { month: "short" }) : "";
     month = dt.getMonth();
+    const hn = htNight(toISO(dt));
+    if (hn) more.push(`🏨 Night at <b>${esc(hn.name)}</b>${hn.booked ? "" : " <span class=\"hint\">(not booked yet)</span>"}`);
     info[n] = `<b class="cal-tip-head">${fmtDate(dt)} · ${n >= 1 && n <= 14 ? `Trek day ${n}` : dayLabel(n)}</b>` + more.map(m => `<span>${m}</span>`).join("");
     cells.push(`<div class="cal-day ${cls}" data-n="${n}" tabindex="0" role="button" aria-label="${fmtDate(dt)}, ${top} ${label.replace(/<[^>]+>/g, " ")}. Show details">
       <span class="cal-date">${mo ? `<em>${mo}</em>` : ""}${dt.getDate()} <small>${dt.toLocaleDateString("en-GB", { weekday: "short" })}</small></span>
@@ -1611,18 +1652,219 @@ $f("fl-results").addEventListener("click", e => {
   FL.options.splice(+b.dataset.del, 1); flSave(); flResults();
 });
 
+/* ---------- Hotels: the nights off the trail (from the trek's stays), plus any extra stays ---------- */
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const HT = () => (TRIP.details.hotels = Array.isArray(TRIP.details.hotels) ? TRIP.details.hotels : []);
+const htSave = () => TripStore.save(TRIP);
+const nightsOf = (a, b) => Math.round((parseISO(b) - parseISO(a)) / 864e5);
+const fmtISO = s => fmtShort(parseISO(s));
+const dateOnly = dt => new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+/* The trek's stays, dated from the start date and the chosen flights */
+function htStays() {
+  if (!START) return [];
+  const o = FL.options.find(x => flKey(x) === FL.chosen);
+  const a = o && parseLocal(o.arr), d = o && parseLocal(o.dep);
+  return (TREK.stays || []).map(s => {
+    const notes = [];
+    let inD = s.from === "land" ? (a ? dateOnly(a) : dayDate(-1)) : dayDate(s.from);
+    const outD = s.to === "leave" ? (d ? dateOnly(d) : dayDate(16)) : dayDate(s.to);
+    if (s.from === "land" && !a) notes.push("Dates assume landing on day −1. Choose your flights on the Flights tab and they follow the landing.");
+    if (s.from === "land" && a && a.getHours() < 6) {
+      inD = new Date(inD.getFullYear(), inD.getMonth(), inD.getDate() - 1);
+      notes.push(`You land at ${fmtTime(a)}, so the stay starts the night before: that way the room is yours when you arrive.`);
+    }
+    if (s.to === "leave" && !d) notes.push("Dates assume flying home on day 16. Choose your flights on the Flights tab and they follow the flight home.");
+    return { ...s, in: toISO(inD), out: toISO(outD), notes };
+  });
+}
+/* The hotel for the night that starts on a date (ISO), if one was added */
+const htNight = iso => HT().find(h => h.name && h.in && h.out && h.in <= iso && iso < h.out);
+let htEdit = null, htNew = false;   // the hotel being edited (a copy) and whether it's new; not saved until Save
+
+const htLink = u => { u = String(u || "").trim(); if (!u) return ""; if (!/^https?:\/\//i.test(u)) u = "https://" + u; try { return new URL(u).href; } catch (e) { return ""; } };
+function htSearch(st) {
+  const adults = Math.min(9, Math.max(1, parseInt(FL.adults, 10) || 1));
+  const booking = `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(st.area + ", Nepal")}&checkin=${st.in}&checkout=${st.out}&group_adults=${adults}&no_rooms=1&group_children=0`;
+  const maps = `https://www.google.com/maps/search/${encodeURIComponent("hotels in " + st.area)}`;
+  return `<a class="fl-btn ghost" href="${booking}" target="_blank" rel="noopener" title="Opens Booking.com in a new tab: ${esc(st.area)}, ${fmtISO(st.in)} – ${fmtISO(st.out)}, ${plural(adults, "adult")} (from the Flights tab). Nothing is booked.">Search Booking.com ↗</a>
+    <a class="fl-btn ghost" href="${maps}" target="_blank" rel="noopener" title="Opens Google Maps in a new tab with hotels in ${esc(st.area)}, to see where they are.">Hotels on the map ↗</a>`;
+}
+function htForm(h, st) {
+  const f = (k, label, attrs = "", wide = false) => `<label${wide ? ' class="wide"' : ""}>${label}<input data-f="${k}" value="${esc(h[k])}" ${attrs}></label>`;
+  return `<form class="fl-grid ht-form" data-id="${esc(h.id)}" novalidate>
+      ${st ? "" : f("place", "Place", 'placeholder="e.g. Chitwan, Bhaktapur" maxlength="60"')}
+      ${f("name", "Hotel name", 'maxlength="100" required')}
+      ${f("addr", "Address or area", `maxlength="160" placeholder="${esc(st?.area || "")}"`)}
+      ${f("in", "Check in", 'type="date"')}
+      ${f("out", "Check out", 'type="date"')}
+      ${f("ref", "Confirmation number", 'maxlength="60" autocomplete="off" spellcheck="false"')}
+      ${f("phone", "Phone", 'type="tel" maxlength="40"')}
+      ${f("link", "Website or booking page", 'type="url" maxlength="400" placeholder="https://…"')}
+      ${f("price", "Price", 'maxlength="60" placeholder="e.g. USD 45 a night, breakfast included"')}
+      ${f("notes", "Notes", 'maxlength="400" placeholder="Airport pickup, left luggage, check-in time…"', true)}
+      <label class="ht-check"><input type="checkbox" data-f="booked"${h.booked ? " checked" : ""}> Booked</label>
+      <p class="fl-err wide" hidden></p>
+      <div class="fl-opt-btns wide">
+        <button type="submit" class="fl-btn">Save</button>
+        <button type="button" class="fl-btn ghost" data-ht="cancel">Cancel</button>
+        ${htNew ? "" : `<button type="button" class="fl-rm" data-ht="del" title="Removes this hotel from the ${TRIP.id === "local" ? "list. It isn't saved anywhere else" : "trip"}.">Remove</button>`}
+      </div>
+    </form>`;
+}
+function htEntry(st, h) {
+  const ro = RO(), editing = htEdit && (h ? htEdit.id === h.id : htNew && (htEdit.slot || null) === (st?.slot || null));   // an extra stay has no slot on either side
+  const cur = editing ? htEdit : h;
+  const place = st?.place || cur?.place || "Another stay";
+  const ins = cur?.in || st?.in, outs = cur?.out || st?.out;
+  const status = !h ? ["", "No hotel yet", "#7b8794"] : h.booked ? ["safe", "Booked", "#2f7d5b"] : ["tight", "Not booked yet", "#b7790f"];
+  const lines = [];
+  if (st) lines.push(`<div class="hint">${esc(st.why)}</div>`, ...st.notes.map(n => `<div class="hint">ℹ ${n}</div>`));
+  if (h && !editing) {
+    const link = htLink(h.link), q = encodeURIComponent([h.name, h.addr || st?.area || place].filter(Boolean).join(", "));
+    lines.push(`<div><b>${link ? `<a href="${esc(link)}" target="_blank" rel="noopener">${esc(h.name)} ↗</a>` : esc(h.name)}</b></div>`);
+    lines.push(`<div>📍 <a href="https://www.google.com/maps/search/?api=1&query=${q}" target="_blank" rel="noopener" title="Opens the hotel on Google Maps">${esc(h.addr || st?.area || place)}</a></div>`);
+    if (h.in && h.out) lines.push(`<div>🗓 Check in ${fmtISO(h.in)} · check out ${fmtISO(h.out)} (${plural(nightsOf(h.in, h.out), "night")})</div>`);
+    if (h.ref) lines.push(`<div>🔖 Confirmation <b>${esc(h.ref)}</b></div>`);
+    if (h.phone) lines.push(`<div>📞 <a href="tel:${esc(h.phone.replace(/[^\d+]/g, ""))}">${esc(h.phone)}</a></div>`);
+    if (h.price) lines.push(`<div>💰 ${esc(h.price)}</div>`);
+    if (h.notes) lines.push(`<div>📝 ${esc(h.notes)}</div>`);
+    /* The plan moved (new start date or flights) but the booking didn't */
+    if (st && h.in && h.out) {
+      const miss = Math.max(0, nightsOf(st.in, h.in)) + Math.max(0, nightsOf(h.out, st.out));
+      const extra = Math.max(0, nightsOf(h.in, st.in)) + Math.max(0, nightsOf(st.out, h.out));
+      if (miss) lines.push(`<div class="fl-err">⚠ These nights run ${fmtISO(st.in)} → ${fmtISO(st.out)}, so the hotel leaves ${plural(miss, "night")} uncovered.</div>`);
+      if (extra) lines.push(`<div class="hint">⚠ The hotel has ${plural(extra, "night")} more than the plan needs (${fmtISO(st.in)} → ${fmtISO(st.out)}).</div>`);
+    }
+  }
+  const body = editing ? htForm(htEdit, st)
+    : h ? (ro ? "" : `<div class="fl-opt-btns ht-btns"><button type="button" class="fl-btn ghost" data-ht="edit" data-id="${esc(h.id)}">Edit</button></div>`)
+    : ro ? `<p class="hint">The trip's admin hasn't added a hotel for these nights yet.</p>`
+    : `<div class="fl-links"><button type="button" class="fl-btn" data-ht="add" data-slot="${esc(st.slot)}" title="Add the hotel you booked, or one you're considering, for these nights.">Add hotel</button>${htSearch(st)}</div>`;
+  return `<div class="fl-opt ht-stay ${status[0]}">
+      <div class="fl-opt-head"><span>🏨 <b>${esc(place)}</b>${ins && outs ? ` · ${fmtISO(ins)} → ${fmtISO(outs)} · ${plural(nightsOf(ins, outs), "night")}` : ""}</span>
+        <span class="fl-verdict" style="background:${status[2]}">${status[1]}</span></div>
+      <div class="ht-lines">${lines.join("")}</div>${body}</div>`;
+}
+function renderHotels() {
+  const stays = htStays(), hs = HT(), ro = RO();
+  $f("ht-intro").textContent = (START ? "The nights off the trail. On the trek itself you sleep in tea houses, found on the way. " : "")
+    + (TRIP.id === "local" ? "Saved in this browser only." : "Saved to the trip: anyone with the trip link sees these details, confirmation numbers included.");
+  const entries = stays.map(st => htEntry(st, hs.find(h => h.slot === st.slot)));
+  hs.filter(h => !stays.some(st => st.slot === h.slot)).forEach(h => entries.push(htEntry(null, h)));
+  if (htNew && htEdit && !htEdit.slot) entries.push(htEntry(null, null));
+  $f("ht-list").innerHTML = (START ? "" : `<p class="fl-err">${ro ? "The hotels show here once the trip's admin sets the dates." : "Pick the trek start date (day 1) in <b>My trip</b> at the top to see which nights need a hotel."}</p>`)
+    + entries.join("");
+  $f("ht-more").innerHTML = ro || (htNew && !htEdit.slot) ? ""
+    : `<button type="button" class="fl-btn ghost" data-ht="extra" title="A night somewhere else: Chitwan, Bhaktapur, a stopover on the way…">+ Add another stay</button>`;
+}
+const htRefresh = () => { renderHotels(); renderMine(); };
+$f("tab-hotels").addEventListener("click", e => {
+  const b = e.target.closest("[data-ht]"); if (!b) return;
+  const act = b.dataset.ht;
+  if (act === "add" || act === "extra") {
+    const st = htStays().find(s => s.slot === b.dataset.slot);
+    htEdit = { id: Math.random().toString(36).slice(2, 10), slot: st?.slot || null, place: st?.place || "", name: "", addr: "",
+      in: st?.in || "", out: st?.out || "", ref: "", phone: "", link: "", price: "", notes: "", booked: false };
+    htNew = true;
+  } else if (act === "edit") { htEdit = { ...HT().find(h => h.id === b.dataset.id) }; htNew = false; }
+  else if (act === "cancel") { htEdit = null; htNew = false; }
+  else if (act === "del") {
+    if (!confirm(`Remove ${htEdit.name || "this hotel"}?`)) return;
+    TRIP.details.hotels = HT().filter(h => h.id !== htEdit.id); htEdit = null; htSave();
+  }
+  htRefresh();
+  $f("tab-hotels").querySelector(".ht-form [data-f]")?.focus();
+});
+$f("tab-hotels").addEventListener("submit", e => {
+  e.preventDefault();
+  const form = e.target, v = k => form.querySelector(`[data-f="${k}"]`);
+  const h = { ...htEdit };
+  ["place", "name", "addr", "in", "out", "ref", "phone", "link", "price", "notes"].forEach(k => { if (v(k)) h[k] = v(k).value.trim(); });
+  h.booked = v("booked").checked;
+  const err = !h.name ? "Give the hotel's name."
+    : !h.slot && !h.place ? "Say where this stay is."
+    : (h.in && !parseISO(h.in)) || (h.out && !parseISO(h.out)) ? "Check the dates."
+    : h.in && h.out && h.out <= h.in ? "Check out must be after check in."
+    : h.link && !htLink(h.link) ? "That website address doesn't look right." : "";
+  const box = form.querySelector(".fl-err");
+  if (err) { box.textContent = err; box.hidden = false; return; }
+  if (h.link) h.link = htLink(h.link);
+  const list = HT(), i = list.findIndex(x => x.id === h.id);
+  i < 0 ? list.push(h) : (list[i] = h);
+  htEdit = null; htNew = false; htSave(); htRefresh();
+});
+
 /* ---------- Render everything that shows dates ---------- */
 function renderAll() {
   renderTrip();
   renderTable();
   renderWeather();
   renderFlights();
+  renderHotels();
   if (window.map) { map.closePopup(); map.eachLayer(l => l.closeTooltip && l.closeTooltip()); }
   if (window.closeChartTip) closeChartTip();
 }
 /* Header from the trek (the HTML holds the same text, for link previews and before the script runs) */
 document.getElementById("trek-route").textContent = TREK.route;
 document.getElementById("trek-stats").innerHTML = TREK.stats.map(([b, t]) => `<div class="stat"><b>${b}</b>${t}</div>`).join("");
+
+/* ---------- Dates as dd/mm/yyyy ----------
+   Browsers show <input type="date"> in their own language's order (mm/dd/yyyy in US English).
+   Each date input gets a text box that shows and accepts dd/mm/yyyy, plus a 📅 button for the browser's calendar.
+   The original input stays in the page, hidden, and keeps its value (yyyy-mm-dd) and its change events,
+   so the code that reads or sets dates is unchanged. New date inputs (forms drawn later) are wrapped as they appear. */
+const NATIVE_VALUE = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+const NATIVE_DISABLED = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "disabled");
+function dmyInput(inp) {
+  if (inp.dataset.dmy) return;
+  inp.dataset.dmy = "1";
+  const wrap = document.createElement("span"), txt = document.createElement("input"), btn = document.createElement("button");
+  wrap.className = "dmy-wrap";
+  if (inp.id) wrap.dataset.for = inp.id;
+  Object.assign(txt, { type: "text", className: "dmy", placeholder: "dd/mm/yyyy", maxLength: 10, autocomplete: "off", spellcheck: false,
+    title: (inp.title ? inp.title + " " : "") + "Type it as day/month/year, or use the calendar button." });
+  txt.inputMode = "numeric";
+  if (inp.id) txt.setAttribute("aria-labelledby", inp.id);
+  Object.assign(btn, { type: "button", className: "dmy-cal", textContent: "📅", title: "Choose the date from a calendar" });
+  btn.setAttribute("aria-label", "Open calendar");
+  inp.before(wrap); wrap.append(txt, btn, inp);
+  inp.classList.add("dmy-native"); inp.tabIndex = -1; inp.setAttribute("aria-hidden", "true");
+  /* A label pointing at the hidden input should focus the text box instead */
+  if (inp.id) document.querySelectorAll(`label[for="${inp.id}"]`).forEach(l => l.addEventListener("click", e => { e.preventDefault(); txt.focus(); }));
+  const show = v => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || ""); txt.value = m ? `${m[3]}/${m[2]}/${m[1]}` : ""; txt.setCustomValidity(""); };
+  Object.defineProperty(inp, "value", { configurable: true,
+    get() { return NATIVE_VALUE.get.call(this); }, set(v) { NATIVE_VALUE.set.call(this, v); show(NATIVE_VALUE.get.call(this)); } });
+  Object.defineProperty(inp, "disabled", { configurable: true,
+    get() { return NATIVE_DISABLED.get.call(this); }, set(v) { NATIVE_DISABLED.set.call(this, v); txt.disabled = btn.disabled = !!v; } });
+  txt.disabled = btn.disabled = inp.disabled;
+  show(inp.value);
+  inp.addEventListener("change", () => show(inp.value));   // picked from the calendar
+  const commit = () => {
+    const raw = txt.value.trim(), m = /^(\d{1,2})[\/.\-\s](\d{1,2})[\/.\-\s](\d{2}|\d{4})$/.exec(raw);
+    let iso = "";
+    if (m) {
+      const d = +m[1], mo = +m[2], y = m[3].length === 2 ? 2000 + +m[3] : +m[3], dt = new Date(y, mo - 1, d);
+      if (dt.getFullYear() === y && dt.getMonth() === mo - 1 && dt.getDate() === d)
+        iso = `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    }
+    if (raw && !iso) { txt.setCustomValidity("Write the date as dd/mm/yyyy, for example 15/10/2027."); txt.reportValidity(); return; }
+    if (iso !== NATIVE_VALUE.get.call(inp)) {
+      NATIVE_VALUE.set.call(inp, iso);
+      inp.dispatchEvent(new Event("input", { bubbles: true }));
+      inp.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    show(NATIVE_VALUE.get.call(inp));
+  };
+  txt.addEventListener("change", commit);
+  txt.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); commit(); } });
+  btn.addEventListener("click", () => { try { inp.showPicker(); } catch (e) { inp.focus(); } });
+}
+document.querySelectorAll('input[type="date"]').forEach(dmyInput);
+new MutationObserver(muts => muts.forEach(m => m.addedNodes.forEach(n => {
+  if (n.nodeType !== 1) return;
+  if (n.matches('input[type="date"]')) dmyInput(n);
+  n.querySelectorAll?.('input[type="date"]').forEach(dmyInput);
+}))).observe(document.body, { childList: true, subtree: true });
 
 /* ---------- Shared trips: hooks for cloud.js (sign-in and the database) ---------- */
 window.TripApp = {
@@ -1637,6 +1879,7 @@ window.TripApp = {
     Object.keys(FL).forEach(k => delete FL[k]);
     Object.assign(FL, data.flights || {});
     FL.options = Array.isArray(FL.options) ? FL.options : [];
+    TRIP.details = data.details || {};
     document.title = `${TRIP.name} · ${TREK.name}`;
     loadStart(); renderAll();
   },

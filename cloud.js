@@ -59,7 +59,7 @@ async function saveTrip(trip) {
   /* The write is kept on this device at once; the promise settles when the server has it */
   const slow = setTimeout(() => { if (n === saves) App.saveState("offline"); }, 4000);
   try {
-    await updateDoc(tripRef(App.tripId), { start: trip.start || null, flights: clean(trip.flights), updatedAt: serverTimestamp() });
+    await updateDoc(tripRef(App.tripId), { start: trip.start || null, flights: clean(trip.flights), details: clean(trip.details || {}), updatedAt: serverTimestamp() });
     if (n === saves) App.saveState("saved");
   } catch (e) { App.saveState("failed", e); }
   finally { clearTimeout(slow); }
@@ -105,7 +105,7 @@ async function createTrip({ name, trek, admins }) {
   const code = [...crypto.getRandomValues(new Uint8Array(10))].map(b => "abcdefghijkmnpqrstuvwxyz23456789"[b % 32]).join("");
   const id = `${slug(name).slice(0, 30) || "trip"}-${code}`;
   if ((await getDoc(tripRef(id))).exists()) throw new Error(`A trip with the link name “${id}” already exists. Choose another name.`);
-  await setDoc(tripRef(id), { trek, name: name.trim(), start: null, flights: {}, updatedAt: serverTimestamp() });
+  await setDoc(tripRef(id), { trek, name: name.trim(), start: null, flights: {}, details: {}, updatedAt: serverTimestamp() });
   await setDoc(adminsRef(id), { emails: cleanEmails(admins) });
   return id;
 }
@@ -142,7 +142,7 @@ async function renderBox() {
   }
   let html = `<h2>${esc(user.email)}</h2>
     <p>${role === "owner" ? "You are the <b>owner</b>: you can create trips and choose their admins."
-      : role === "admin" ? "You are this trip's <b>admin</b>: you can set its dates and flights."
+      : role === "admin" ? "You are this trip's <b>admin</b>: you can set its dates, flights and hotels."
       : App.tripId === "local" ? "Open a trip link to see what you can do there."
       : "You can view this trip. Only its admins can change it."}</p>
     ${!user.emailVerified ? `<p class="fl-err">Your email isn't confirmed yet, so admin rights don't apply. Check your inbox for the link, then sign in again.
@@ -204,7 +204,7 @@ dlg.addEventListener("click", async e => {
     else if (b.dataset.act === "close") dlg.close();
     else if (b.dataset.copy) { await navigator.clipboard.writeText(tripLink(b.dataset.copy)); b.textContent = "Copied"; }
     else if (b.dataset.delTrip) {
-      if (!confirm(`Delete the trip “${b.dataset.delTrip}”? Its dates and flights are removed for everyone. This can't be undone.`)) return;
+      if (!confirm(`Delete the trip “${b.dataset.delTrip}”? Its dates, flights and hotels are removed for everyone. This can't be undone.`)) return;
       await deleteDoc(adminsRef(b.dataset.delTrip)); await deleteDoc(tripRef(b.dataset.delTrip)); renderTrips();
     }
   } catch (err) { say(authErr(err)); }
